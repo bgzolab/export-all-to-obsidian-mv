@@ -86,3 +86,42 @@ def test_query_rejects_hidden_body_column(client):
     response = client.post('/api/tables/sync_response/query', json={'columns': ['body']})
     assert response.status_code == 400
     assert response.json()['detail'] == 'column is not queryable: body'
+
+
+def test_row_by_single_primary_key(client, seeded):
+    response = client.post(
+        '/api/tables/zhihu_content/row', json={'pk': {'content_id': '2'}}
+    )
+    assert response.status_code == 200
+    assert response.json()['row']['title'] == 'beta'
+
+
+def test_row_by_composite_primary_key(client, db_path):
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "INSERT INTO bilibili_fav_item (fav_id, media_id, title) VALUES (1, 20, 'fav')"
+    )
+    connection.commit()
+    connection.close()
+
+    response = client.post(
+        '/api/tables/bilibili_fav_item/row', json={'pk': {'fav_id': 1, 'media_id': 20}}
+    )
+    assert response.status_code == 200
+    assert response.json()['row']['title'] == 'fav'
+
+
+def test_row_missing_returns_404(client, seeded):
+    response = client.post(
+        '/api/tables/zhihu_content/row', json={'pk': {'content_id': 'missing'}}
+    )
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'row not found'
+
+
+def test_row_with_incomplete_primary_key_is_400(client, db_path):
+    response = client.post(
+        '/api/tables/bilibili_fav_item/row', json={'pk': {'fav_id': 1}}
+    )
+    assert response.status_code == 400
+    assert 'primary key must contain exactly' in response.json()['detail']

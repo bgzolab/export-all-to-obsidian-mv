@@ -7,12 +7,12 @@ hosting of the built frontend is added by the integration task.
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db, query, schema
 from .config import CORS_ORIGINS
-from .models import QueryRequest
+from .models import QueryRequest, RowRequest
 
 app = FastAPI(title='eto data browser', version='0.1.0')
 
@@ -47,3 +47,14 @@ def query_table(
     allowlist and parameter binding.
     """
     return query.run_query(connection, table, request)
+
+
+@app.post('/api/tables/{table}/row')
+def get_row(
+    table: str, request: RowRequest, connection=Depends(db.get_connection)
+) -> dict:
+    """Fetch one row by its full primary key (single or composite)."""
+    result = query.fetch_row(connection, table, request.pk)
+    if result is None:
+        raise HTTPException(status_code=404, detail='row not found')
+    return result
