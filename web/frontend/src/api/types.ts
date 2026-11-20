@@ -27,3 +27,32 @@ export interface HealthResponse {
   user_version: number
   readonly: boolean
 }
+
+export interface SortSpec {
+  column: string
+  dir: 'asc' | 'desc'
+}
+
+export interface FilterSpec {
+  column: string
+  op: string
+  value: unknown
+}
+
+export interface QueryRequest {
+  columns?: string[]
+  filters?: FilterSpec[]
+  search?: string
+  sort?: SortSpec[]
+  limit?: number
+  offset?: number
+}
+
+export interface QueryResponse {
+  table: string
+  columns: Array<{ name: string; type: string; json: boolean }>
+  rows: Array<Record<string, unknown>>
+  total: number
+  limit: number
+  offset: number
+}

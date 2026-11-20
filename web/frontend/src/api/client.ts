@@ -1,4 +1,9 @@
-import type { HealthResponse, SchemaResponse } from './types'
+import type {
+  HealthResponse,
+  QueryRequest,
+  QueryResponse,
+  SchemaResponse,
+} from './types'
 
 /**
  * Error thrown for non-2xx API responses. `detail` mirrors the backend's
@@ -35,4 +40,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>('/health'),
   schema: () => request<SchemaResponse>('/schema'),
+  queryTable: (table: string, body: QueryRequest) =>
+    request<QueryResponse>(`/tables/${encodeURIComponent(table)}/query`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
