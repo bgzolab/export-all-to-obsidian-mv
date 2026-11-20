@@ -15,7 +15,12 @@ import MultiSelect from 'openvue/multiselect'
 import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
 import { useSchema } from '@/composables/useSchema'
-import { defaultListColumns } from '@/config/tables'
+import {
+  defaultSortFor,
+  hiddenColumnsFor,
+  listColumnsFor,
+  tableLabel,
+} from '@/config/tables'
 import { encodePk } from '@/utils/pk'
 import FilterBar from '@/components/FilterBar.vue'
 
@@ -28,9 +33,10 @@ const table = computed<TableMeta | undefined>(() =>
   schema.value?.tables.find((item) => item.name === tableName.value),
 )
 
-const visibleColumns = computed<ColumnMeta[]>(
-  () => table.value?.columns.filter((column) => !column.hidden) ?? [],
-)
+const visibleColumns = computed<ColumnMeta[]>(() => {
+  const hidden = hiddenColumnsFor(tableName.value)
+  return table.value?.columns.filter((column) => !column.hidden && !hidden.has(column.name)) ?? []
+})
 const columnOptions = computed(() => visibleColumns.value.map((column) => column.name))
 
 const rows = ref<Array<Record<string, unknown>>>([])
@@ -136,9 +142,11 @@ function hydrate() {
   const fromUrl = (readString(query.cols) ?? '').split(',').filter(Boolean)
   selectedColumns.value = fromUrl.filter((name) => allowed.has(name))
   if (!selectedColumns.value.length) {
-    selectedColumns.value = defaultListColumns(table.value)
+    selectedColumns.value = listColumnsFor(table.value)
   }
-  sortSpecs.value = parseSort(readString(query.sort))
+  const parsedSort = parseSort(readString(query.sort))
+  const configuredSort = defaultSortFor(table.value.name)
+  sortSpecs.value = parsedSort.length ? parsedSort : configuredSort ? [configuredSort] : []
   filters.value = parseFilters(readString(query.filters))
 }
 
@@ -260,8 +268,8 @@ function cellText(value: unknown): string {
 
     <template v-else>
       <div class="table-heading">
-        <h1>{{ table.name }}</h1>
-        <span class="muted">{{ total }} 行</span>
+        <h1>{{ tableLabel(table.name) }}</h1>
+        <span class="muted">{{ table.name }} · {{ total }} 行</span>
       </div>
 
       <form class="toolbar" @submit.prevent="submitSearch">

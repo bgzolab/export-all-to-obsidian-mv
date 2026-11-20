@@ -161,6 +161,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/components/FieldRenderer.vue`、`web/frontend/src/components/JsonTree.vue`、`web/frontend/src/utils/{html,renderers,time}.ts`。
 - **验证结果**: `npm run build` 通过；Playwright 实测 `twitter_tweet.author_json` 输出 JSON 树、`zhihu_content.body_html` 富文本且注入的 `<script>`/`onerror` 被清洗、`github_star.readme` 渲染出 Markdown 标题、`bilibili_media.cover` 显示图片、`v2ex_topic.response_id` 生成 `/raw/responses/11063` 链接、`created` 格式化为 `2012-09-16 12:07:29`。
 
+#### TASK-013 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 为 26 张表补齐展示配置：中文标签、标题列、列表列、默认排序、列表隐藏列；保留未知表的 schema fallback。
+- **逻辑变更**:
+  - **新增**: `TABLE_CONFIGS` 覆盖 10 个平台与 raw 表；`tableLabel`/`titleColumnFor`/`defaultSortFor`/`hiddenColumnsFor`/`listColumnsFor`；详情页显示“标签 · 标题列”。
+  - **修改**（及原因）: 列表使用配置列与默认排序，避免拉取 `body_html`、`readme`、`content` 等大字段；列选择器过滤配置隐藏列；未知表仍用 `defaultListColumns` 推断。
+- **相关代码**: `web/frontend/src/config/tables.ts`、`web/frontend/src/views/TableView.vue`、`web/frontend/src/views/DetailView.vue`。
+- **验证结果**: `npm run build` 通过；Playwright 逐个打开 10 个平台首表，均显示中文标题、默认排序和 50 行列表，请求列不含大字段；不存在的表显示“未知表”而非崩溃。
+
 ### 阶段 2：前端骨架与数据浏览
 
 完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
@@ -173,7 +183,7 @@ design: docs/design/web-data-browser.md
 | TASK-010 | Completed | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | 2026-11-20 |
 | TASK-011 | Completed | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | 2026-11-20 |
 | TASK-012 | Completed | 实现 `FieldRenderer`/`JsonTree` 及 `time/html/renderers` 工具，使用 OpenVue `Tag`/`Image`/`Tree`：文本、长文本、链接、图片、时间、布尔/数字、JSON 树、HTML/Markdown 清洗渲染、`response_id` 跳转。 | 打开 `twitter_tweet` 详情，`author_json` 显示折叠树；`zhihu_content.body_html` 渲染富文本且脚本被清洗；`github_star.readme` 按 Markdown 渲染；`bilibili_media` 显示封面；`v2ex_topic` 的 `response_id` 可跳 raw；时间按配置格式化。 | 2026-11-20 |
-| TASK-013 | Pending | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | |
+| TASK-013 | Completed | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | 2026-11-20 |
 
 ### 阶段 3：raw 层 UI
 

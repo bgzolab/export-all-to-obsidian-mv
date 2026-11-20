@@ -6,6 +6,7 @@ import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, TableMeta } from '@/api/types'
 import FieldRenderer from '@/components/FieldRenderer.vue'
 import { useSchema } from '@/composables/useSchema'
+import { tableLabel, titleColumnFor } from '@/config/tables'
 import { decodePk } from '@/utils/pk'
 
 const route = useRoute()
@@ -25,6 +26,13 @@ const row = ref<Record<string, unknown> | null>(null)
 const loading = ref(false)
 const notFound = ref(false)
 const loadError = ref('')
+
+const detailTitle = computed(() => {
+  const column = titleColumnFor(tableName.value)
+  const title = column && row.value ? row.value[column] : undefined
+  const label = tableLabel(tableName.value)
+  return title ? `${label} · ${String(title)}` : label
+})
 
 let requestSequence = 0
 
@@ -71,7 +79,8 @@ watch(() => [table.value, pkParam.value] as const, load, { immediate: true })
     <p v-else-if="loadError" class="error">加载失败：{{ loadError }}</p>
 
     <template v-else-if="row">
-      <h1>{{ table.name }} 详情</h1>
+      <h1>{{ detailTitle }}</h1>
+      <p class="muted table-name">{{ table.name }}</p>
       <dl class="fields">
         <template v-for="column in columns" :key="column.name">
           <dt>{{ column.name }}</dt>
@@ -91,6 +100,12 @@ watch(() => [table.value, pkParam.value] as const, load, { immediate: true })
   color: #3730a3;
   text-decoration: none;
   font-size: 13px;
+}
+
+.table-name {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .fields {
