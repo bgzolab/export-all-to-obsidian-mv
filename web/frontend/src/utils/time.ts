@@ -1,0 +1,29 @@
+export type TimeUnit = 'epoch_s' | 'epoch_ms' | 'iso' | 'raw'
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/**
+ * Convert an epoch value to the `datetime-local` input format in the browser's
+ * timezone. The backend stores epoch seconds unless a column is explicitly
+ * configured as milliseconds (TASK-013 covers per-table overrides).
+ */
+export function toDatetimeLocal(value: unknown, unit: TimeUnit = 'epoch_s'): string {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return ''
+  const date = new Date(unit === 'epoch_ms' ? numeric : numeric * 1000)
+  if (Number.isNaN(date.getTime())) return ''
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  )
+}
+
+/** Convert a `datetime-local` input back to epoch seconds or milliseconds. */
+export function fromDatetimeLocal(value: string, unit: TimeUnit = 'epoch_s'): number | null {
+  if (!value) return null
+  const milliseconds = new Date(value).getTime()
+  if (Number.isNaN(milliseconds)) return null
+  return unit === 'epoch_ms' ? milliseconds : Math.floor(milliseconds / 1000)
+}

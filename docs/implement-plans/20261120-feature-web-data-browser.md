@@ -131,6 +131,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/views/TableView.vue`、`web/frontend/src/config/tables.ts`（`defaultListColumns`）、`web/frontend/src/api/client.ts`。
 - **验证结果**: `npm run build` 通过；Playwright 实测第 2 页请求 `offset=50`、`title` 降序请求 `sort=[{title,desc}]`、搜索请求含 `search` 且 URL 为 `q=编程`、刷新与后退均恢复条件、列选择后请求列包含 `updated_time`。
 
+#### TASK-010 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 新增按列类型生成输入与操作符的过滤条，支持文本/数值/时间列，过滤条件保存在 URL 的 `filters` JSON 参数中。
+- **逻辑变更**:
+  - **新增**: `components/FilterBar.vue` 支持增删条件、按类型切换 `eq/ne/gt/gte/lt/lte/like/is_null/not_null`、时间列使用 `datetime-local` 并转换为 epoch；`utils/time.ts` 提供时间输入双向转换。
+  - **修改**（及原因）: `TableView.vue` 从 URL 解析/校验过滤条件并传给请求；空过滤从 URL 移除；JSON 列只提供 null 判断；无效旧链接条目直接丢弃。
+- **相关代码**: `web/frontend/src/components/FilterBar.vue`、`web/frontend/src/utils/time.ts`、`web/frontend/src/views/TableView.vue`。
+- **验证结果**: `npm run build` 通过；Playwright 实测 `updated_time >= 2025-01-01` 后总数 2968 → 1434，请求包含 epoch 值，URL 含 `filters`，删除后 URL 与总数恢复。
+
 ### 阶段 2：前端骨架与数据浏览
 
 完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
@@ -140,7 +150,7 @@ design: docs/design/web-data-browser.md
 | TASK-007 | Completed | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | 2026-11-20 |
 | TASK-008 | Completed | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | 2026-11-20 |
 | TASK-009 | Completed | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | 2026-11-20 |
-| TASK-010 | Pending | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | |
+| TASK-010 | Completed | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | 2026-11-20 |
 | TASK-011 | Pending | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | |
 | TASK-012 | Pending | 实现 `FieldRenderer`/`JsonTree` 及 `time/html/renderers` 工具，使用 OpenVue `Tag`/`Image`/`Tree`：文本、长文本、链接、图片、时间、布尔/数字、JSON 树、HTML/Markdown 清洗渲染、`response_id` 跳转。 | 打开 `twitter_tweet` 详情，`author_json` 显示折叠树；`zhihu_content.body_html` 渲染富文本且脚本被清洗；`github_star.readme` 按 Markdown 渲染；`bilibili_media` 显示封面；`v2ex_topic` 的 `response_id` 可跳 raw；时间按配置格式化。 | |
 | TASK-013 | Pending | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | |

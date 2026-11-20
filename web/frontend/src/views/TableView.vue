@@ -9,9 +9,10 @@ import InputText from 'openvue/inputtext'
 import MultiSelect from 'openvue/multiselect'
 
 import { ApiError, api } from '@/api/client'
-import type { ColumnMeta, SortSpec, TableMeta } from '@/api/types'
+import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
 import { useSchema } from '@/composables/useSchema'
 import { defaultListColumns } from '@/config/tables'
+import FilterBar from '@/components/FilterBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +36,7 @@ const search = ref('')
 const searchDraft = ref('')
 const selectedColumns = ref<string[]>([])
 const sortSpecs = ref<SortSpec[]>([])
+const filters = ref<FilterSpec[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
@@ -70,6 +72,40 @@ function parseSort(raw: string | undefined): SortSpec[] {
   return [{ column, dir }]
 }
 
+const KNOWN_OPERATORS = new Set([
+  'eq',
+  'ne',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'like',
+  'in',
+  'is_null',
+  'not_null',
+])
+
+/**
+ * Filters travel as a JSON array in the `filters` query parameter. Invalid or
+ * stale entries are dropped so an old link cannot break the whole page.
+ */
+function parseFilters(raw: string | undefined): FilterSpec[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item): item is FilterSpec =>
+        Boolean(item) &&
+        typeof item.column === 'string' &&
+        typeof item.op === 'string' &&
+        KNOWN_OPERATORS.has(item.op),
+    )
+  } catch {
+    return []
+  }
+}
+
 /**
  * Copy the URL into component state. URL is the single source of truth so the
  * browser back button and a full page refresh restore the exact same query.
@@ -89,6 +125,7 @@ function hydrate() {
     selectedColumns.value = defaultListColumns(table.value)
   }
   sortSpecs.value = parseSort(readString(query.sort))
+  filters.value = parseFilters(readString(query.filters))
 }
 
 function navigate(patch: Record<string, string | undefined>) {
@@ -111,6 +148,7 @@ async function load() {
   try {
     const response = await api.queryTable(tableName.value, {
       columns: selectedColumns.value,
+      filters: filters.value,
       search: search.value || undefined,
       sort: sortSpecs.value,
       limit: limit.value,
@@ -153,6 +191,14 @@ function changeColumns(value: unknown) {
   // current columns instead of navigating to an invalid state.
   if (!selected.length) return
   navigate({ cols: selected.join(','), offset: undefined })
+}
+
+function changeFilters(next: FilterSpec[]) {
+  // Empty filters are removed from the URL so the default view stays clean.
+  navigate({
+    filters: next.length ? JSON.stringify(next) : undefined,
+    offset: undefined,
+  })
 }
 
 function changePage(event: DataTablePageEvent) {
@@ -218,6 +264,12 @@ function cellText(value: unknown): string {
           @update:model-value="changeColumns"
         />
       </form>
+
+      <FilterBar
+        :columns="visibleColumns"
+        :filters="filters"
+        @update:filters="changeFilters"
+      />
 
       <p v-if="loadError" class="error">查询失败：{{ loadError }}</p>
 
