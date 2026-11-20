@@ -36,7 +36,7 @@ design: docs/design/web-data-browser.md
 | --- | --- | --- | --- | --- |
 | TASK-001 | Completed | 创建 `web/backend` 骨架：`requirements.txt`、`app/config.py`、`app/db.py`、`app/main.py`，实现只读连接与 `/api/health`。 | `cd web/backend && pip install -r requirements.txt && uvicorn app.main:app --port 8787`；`curl -s localhost:8787/api/health` 返回 `status=ok`、`readonly=true`、`user_version=7`；`pytest -q tests/test_health.py` 通过。 | 2026-11-20 |
 | TASK-002 | Completed | 实现 `app/schema.py` 与 `/api/schema`：表、列、主键顺序、JSON 列、`hidden` 列、平台分组、行数。 | `curl -s localhost:8787/api/schema` 包含 26 张表；`zhihu_content` 主键为 `content_id`，`bilibili_fav_item` 主键为 `fav_id,media_id`，`sync_response.body` 为 `hidden`；`pytest -q tests/test_schema.py` 通过。 | 2026-11-20 |
-| TASK-003 | Pending | 实现 `app/models.py` 与 `app/query.py` 的请求模型和 SQL 构建：过滤操作符、搜索、排序、分页、列 allowlist、参数化。 | `pytest -q tests/test_query.py` 覆盖 `eq/gte/lte/like/in/is_null`、复合主键排序、未知表/列/操作符报 400、注入字符串只作为参数值。 | |
+| TASK-003 | Completed | 实现 `app/models.py` 与 `app/query.py` 的请求模型和 SQL 构建：过滤操作符、搜索、排序、分页、列 allowlist、参数化。 | `pytest -q tests/test_query.py` 覆盖 `eq/gte/lte/like/in/is_null`、复合主键排序、未知表/列/操作符报 400、注入字符串只作为参数值。 | 2026-11-20 |
 | TASK-004 | Pending | 实现 `POST /api/tables/{table}/query`，返回 `rows/total/columns`，解析 `*_json` 列。 | `curl -s -X POST localhost:8787/api/tables/zhihu_content/query -H 'content-type: application/json' -d '{"columns":["content_id","title"],"sort":[{"column":"updated_time","dir":"desc"}],"limit":5}'` 返回 5 行和 `total`；`twitter_tweet.author_json` 返回对象；`curl .../query -d '{"limit":999}'` 被截到 200；pytest 通过。 | |
 | TASK-005 | Pending | 实现 `POST /api/tables/{table}/row`，按主键取单行，支持复合主键。 | `curl -s -X POST .../tables/zhihu_content/row -d '{"pk":{"content_id":"<id>"}}'` 返回单行；复合主键 `bilibili_fav_item` 可查；不存在返回 404；pytest 通过。 | |
 | TASK-006 | Pending | 实现 `app/raw.py` 与 raw 接口：run 列表/详情、response 列表/详情、zlib 解压、JSON/文本识别、2MB 截断。 | `/api/runs?limit=5` 返回 695 条中的 5 条；`/api/responses?limit=5` 不含 `body`；`/api/responses/{id}` 返回解析后的 JSON 或文本，`body_truncated` 正确；pytest 通过。 | |
@@ -60,6 +60,16 @@ design: docs/design/web-data-browser.md
   - **修改**（及原因）: `app/main.py` 挂载 `/api/schema`；`tests/conftest.py` 增加复合主键表 `bilibili_fav_item`，用于覆盖主键顺序。
 - **相关代码**: `web/backend/app/schema.py`（`describe_table`、`describe_database`、`find_table`）、`web/backend/app/main.py`。
 - **验证结果**: `pytest -q tests/test_schema.py` 4 项通过；真实库上 `/api/schema` 返回 26 张表，主键与 hidden 标记符合预期（8787 被占用，使用 8788 验证）。
+
+#### TASK-003 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 新增查询请求模型与 SQL 构建层，实现全部过滤操作符、搜索、稳定排序、分页、列 allowlist 和参数化执行。
+- **逻辑变更**:
+  - **新增**: `app/models.py` 定义 `Filter`/`SortSpec`/`QueryRequest`/`RowRequest`/`QueryResponse`；`app/query.py` 提供 `build_where`/`build_select`/`build_count`/`run_query`/`fetch_row`，未知表、列、操作符、排序方向返回 400，hidden 列不可查询，JSON 列只允许 null 判断，`limit` 上限 200。
+  - **修改**（及原因）: `app/schema.py` 的 `find_table` 不再执行 `COUNT(*)`，避免每次查询重复统计大表；新增测试数据使用复合主键表。
+- **相关代码**: `web/backend/app/query.py`（`run_query`、`fetch_row`、`build_select`）、`web/backend/app/models.py`。
+- **验证结果**: `pytest -q tests/test_query.py` 25 项通过，覆盖 10 种操作符、复合主键排序、注入字符串参数化、隐藏列/JSON 列限制与 400 错误路径。
 
 ### 阶段 2：前端骨架与数据浏览
 

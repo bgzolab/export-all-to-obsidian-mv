@@ -90,7 +90,20 @@ def describe_database(connection: sqlite3.Connection) -> dict:
 
 
 def find_table(connection: sqlite3.Connection, table: str) -> dict | None:
-    """Look up one table, returning None for unknown names (mapped to 400 by routes)."""
+    """Look up one table without the row count used by the schema listing.
+
+    Query routes only need columns and primary keys; skipping COUNT(*) keeps the
+    per-request metadata lookup cheap on large tables.
+    """
     if table not in _table_names(connection):
         return None
-    return describe_table(connection, table)
+    columns = _columns(connection, table)
+    primary_key = [column['name'] for column in sorted(columns, key=lambda c: c['pk']) if column['pk']]
+    is_raw = table in RAW_TABLES
+    return {
+        'name': table,
+        'platform': 'raw' if is_raw else table.split('_', 1)[0],
+        'kind': 'raw' if is_raw else 'projection',
+        'primary_key': primary_key,
+        'columns': columns,
+    }
