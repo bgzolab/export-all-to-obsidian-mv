@@ -34,12 +34,22 @@ design: docs/design/web-data-browser.md
 
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
-| TASK-001 | Pending | 创建 `web/backend` 骨架：`requirements.txt`、`app/config.py`、`app/db.py`、`app/main.py`，实现只读连接与 `/api/health`。 | `cd web/backend && pip install -r requirements.txt && uvicorn app.main:app --port 8787`；`curl -s localhost:8787/api/health` 返回 `status=ok`、`readonly=true`、`user_version=7`；`pytest -q tests/test_health.py` 通过。 | |
+| TASK-001 | Completed | 创建 `web/backend` 骨架：`requirements.txt`、`app/config.py`、`app/db.py`、`app/main.py`，实现只读连接与 `/api/health`。 | `cd web/backend && pip install -r requirements.txt && uvicorn app.main:app --port 8787`；`curl -s localhost:8787/api/health` 返回 `status=ok`、`readonly=true`、`user_version=7`；`pytest -q tests/test_health.py` 通过。 | 2026-11-20 |
 | TASK-002 | Pending | 实现 `app/schema.py` 与 `/api/schema`：表、列、主键顺序、JSON 列、`hidden` 列、平台分组、行数。 | `curl -s localhost:8787/api/schema` 包含 26 张表；`zhihu_content` 主键为 `content_id`，`bilibili_fav_item` 主键为 `fav_id,media_id`，`sync_response.body` 为 `hidden`；`pytest -q tests/test_schema.py` 通过。 | |
 | TASK-003 | Pending | 实现 `app/models.py` 与 `app/query.py` 的请求模型和 SQL 构建：过滤操作符、搜索、排序、分页、列 allowlist、参数化。 | `pytest -q tests/test_query.py` 覆盖 `eq/gte/lte/like/in/is_null`、复合主键排序、未知表/列/操作符报 400、注入字符串只作为参数值。 | |
 | TASK-004 | Pending | 实现 `POST /api/tables/{table}/query`，返回 `rows/total/columns`，解析 `*_json` 列。 | `curl -s -X POST localhost:8787/api/tables/zhihu_content/query -H 'content-type: application/json' -d '{"columns":["content_id","title"],"sort":[{"column":"updated_time","dir":"desc"}],"limit":5}'` 返回 5 行和 `total`；`twitter_tweet.author_json` 返回对象；`curl .../query -d '{"limit":999}'` 被截到 200；pytest 通过。 | |
 | TASK-005 | Pending | 实现 `POST /api/tables/{table}/row`，按主键取单行，支持复合主键。 | `curl -s -X POST .../tables/zhihu_content/row -d '{"pk":{"content_id":"<id>"}}'` 返回单行；复合主键 `bilibili_fav_item` 可查；不存在返回 404；pytest 通过。 | |
 | TASK-006 | Pending | 实现 `app/raw.py` 与 raw 接口：run 列表/详情、response 列表/详情、zlib 解压、JSON/文本识别、2MB 截断。 | `/api/runs?limit=5` 返回 695 条中的 5 条；`/api/responses?limit=5` 不含 `body`；`/api/responses/{id}` 返回解析后的 JSON 或文本，`body_truncated` 正确；pytest 通过。 | |
+
+#### TASK-001 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 新增 `web/backend` FastAPI 骨架、只读 SQLite 连接与 `/api/health`，附带 pytest 夹具和健康检查测试。
+- **逻辑变更**:
+  - **新增**: `app/config.py` 解析 `ETO_DB`（相对路径按仓库根解析）、2MB raw 截断阈值与 CORS 白名单；`app/db.py` 提供 `mode=ro` + `query_only` + `busy_timeout` 的单请求连接与健康检查；`app/main.py` 注册 CORS 与健康路由；`tests/conftest.py` 建立最小临时库；`tests/test_health.py` 覆盖正常、只读拒写和库缺失 503。
+  - **修改**（及原因）: 无既有代码改动；仓库 `.gitignore` 已覆盖 `.venv/`，无需调整。
+- **相关代码**: `web/backend/app/config.py`（`get_db_path`、`get_frontend_dist`）、`web/backend/app/db.py`（`open_readonly`、`get_connection`、`health`）、`web/backend/app/main.py`。
+- **验证结果**: `pytest -q tests/test_health.py` 3 项通过；本机 8787 端口被其他服务占用，改用 8788 启动 uvicorn，`/api/health` 返回 `status=ok`、`readonly=true`、`user_version=7`。
 
 ### 阶段 2：前端骨架与数据浏览
 
