@@ -48,6 +48,27 @@ a {
 .app-main {
   flex: 1;
   padding: 20px;
+  min-width: 0;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.app-sidebar {
+  width: 230px;
+  flex: none;
+  border-right: 1px solid #e5e7eb;
+  background: #ffffff;
+  overflow-y: auto;
+}
+
+.nav-placeholder {
+  padding: 12px;
+  color: #6b7280;
+  font-size: 13px;
 }
 
 h1 {

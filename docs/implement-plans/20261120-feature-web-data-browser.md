@@ -111,6 +111,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/main.ts`、`web/frontend/vite.config.ts`、`web/frontend/src/api/client.ts`。
 - **验证结果**: `npm run build` 通过；Vite dev server 200，经 proxy 请求 `/api/schema` 返回真实表结构（本机用 5174/8788 避开端口占用）。
 
+#### TASK-008 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 首页按平台分组展示 10 个平台、26 张表及行数，左侧 `PlatformNav` 提供同样的分组导航，点击表名进入 `/t/:table`。
+- **逻辑变更**:
+  - **新增**: `components/PlatformNav.vue`、`composables/useSchema.ts`（页面级 schema 缓存，避免导航与首页重复请求）、`views/TableView.vue` 占位、`config/tables.ts` 平台显示名与 fallback。
+  - **修改**（及原因）: `App.vue` 改为侧栏 + 主区布局；`HomeView.vue` 增加平台卡片与 raw 入口；`router.ts` 增加 `/t/:table` 路由。
+- **相关代码**: `web/frontend/src/components/PlatformNav.vue`、`web/frontend/src/views/HomeView.vue`、`web/frontend/src/composables/useSchema.ts`。
+- **验证结果**: `npm run build` 通过；真实 `/api/schema` 统计为 10 个平台 + raw、共 26 张表，行数与接口一致。
+
 ### 阶段 2：前端骨架与数据浏览
 
 完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
@@ -118,7 +128,7 @@ design: docs/design/web-data-browser.md
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
 | TASK-007 | Completed | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | 2026-11-20 |
-| TASK-008 | Pending | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | |
+| TASK-008 | Completed | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | 2026-11-20 |
 | TASK-009 | Pending | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | |
 | TASK-010 | Pending | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | |
 | TASK-011 | Pending | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | |
