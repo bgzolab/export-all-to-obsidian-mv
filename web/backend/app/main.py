@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import db, query, schema
+from . import db, query, raw, schema
 from .config import CORS_ORIGINS
 from .models import QueryRequest, RowRequest
 
@@ -57,4 +57,56 @@ def get_row(
     result = query.fetch_row(connection, table, request.pk)
     if result is None:
         raise HTTPException(status_code=404, detail='row not found')
+    return result
+
+
+@app.get('/api/runs')
+def get_runs(
+    platform: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    connection=Depends(db.get_connection),
+) -> dict:
+    return raw.list_runs(
+        connection, platform=platform, status=status, limit=limit, offset=offset
+    )
+
+
+@app.get('/api/runs/{run_id}')
+def get_run(run_id: int, connection=Depends(db.get_connection)) -> dict:
+    result = raw.get_run(connection, run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail='run not found')
+    return result
+
+
+@app.get('/api/responses')
+def get_responses(
+    run_id: int | None = None,
+    platform: str | None = None,
+    endpoint: str | None = None,
+    status_code: int | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    connection=Depends(db.get_connection),
+) -> dict:
+    return raw.list_responses(
+        connection,
+        run_id=run_id,
+        platform=platform,
+        endpoint=endpoint,
+        status_code=status_code,
+        q=q,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.get('/api/responses/{response_id}')
+def get_response(response_id: int, connection=Depends(db.get_connection)) -> dict:
+    result = raw.get_response(connection, response_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail='response not found')
     return result

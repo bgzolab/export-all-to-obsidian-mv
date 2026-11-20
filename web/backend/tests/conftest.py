@@ -37,8 +37,12 @@ CREATE TABLE sync_run (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     platform TEXT NOT NULL,
     operation TEXT NOT NULL,
+    scope TEXT,
+    command TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
     status TEXT NOT NULL,
-    started_at TEXT NOT NULL
+    error TEXT
 );
 CREATE TABLE sync_response (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

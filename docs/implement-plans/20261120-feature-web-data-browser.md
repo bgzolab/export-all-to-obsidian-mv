@@ -39,7 +39,7 @@ design: docs/design/web-data-browser.md
 | TASK-003 | Completed | 实现 `app/models.py` 与 `app/query.py` 的请求模型和 SQL 构建：过滤操作符、搜索、排序、分页、列 allowlist、参数化。 | `pytest -q tests/test_query.py` 覆盖 `eq/gte/lte/like/in/is_null`、复合主键排序、未知表/列/操作符报 400、注入字符串只作为参数值。 | 2026-11-20 |
 | TASK-004 | Completed | 实现 `POST /api/tables/{table}/query`，返回 `rows/total/columns`，解析 `*_json` 列。 | `curl -s -X POST localhost:8787/api/tables/zhihu_content/query -H 'content-type: application/json' -d '{"columns":["content_id","title"],"sort":[{"column":"updated_time","dir":"desc"}],"limit":5}'` 返回 5 行和 `total`；`twitter_tweet.author_json` 返回对象；`curl .../query -d '{"limit":999}'` 被截到 200；pytest 通过。 | 2026-11-20 |
 | TASK-005 | Completed | 实现 `POST /api/tables/{table}/row`，按主键取单行，支持复合主键。 | `curl -s -X POST .../tables/zhihu_content/row -d '{"pk":{"content_id":"<id>"}}'` 返回单行；复合主键 `bilibili_fav_item` 可查；不存在返回 404；pytest 通过。 | 2026-11-20 |
-| TASK-006 | Pending | 实现 `app/raw.py` 与 raw 接口：run 列表/详情、response 列表/详情、zlib 解压、JSON/文本识别、2MB 截断。 | `/api/runs?limit=5` 返回 695 条中的 5 条；`/api/responses?limit=5` 不含 `body`；`/api/responses/{id}` 返回解析后的 JSON 或文本，`body_truncated` 正确；pytest 通过。 | |
+| TASK-006 | Completed | 实现 `app/raw.py` 与 raw 接口：run 列表/详情、response 列表/详情、zlib 解压、JSON/文本识别、2MB 截断。 | `/api/runs?limit=5` 返回 695 条中的 5 条；`/api/responses?limit=5` 不含 `body`；`/api/responses/{id}` 返回解析后的 JSON 或文本，`body_truncated` 正确；pytest 通过。 | 2026-11-20 |
 
 #### TASK-001 执行记录
 
@@ -90,6 +90,16 @@ design: docs/design/web-data-browser.md
   - **修改**（及原因）: `app/main.py` 引入 `HTTPException` 与 `RowRequest`，行查询复用 `query.fetch_row`。
 - **相关代码**: `web/backend/app/main.py`（`get_row`）、`web/backend/app/query.py`（`fetch_row`）。
 - **验证结果**: `pytest -q tests/test_query_api.py` 12 项通过；真实库上 `zhihu_content` 与 `bilibili_fav_item` 均可按主键读取，缺失主键返回 404。
+
+#### TASK-006 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 新增 raw 层浏览接口：run 列表/详情、response 列表/详情，详情按需 zlib 解压并识别 JSON/文本，超过 2MB 截断。
+- **逻辑变更**:
+  - **新增**: `app/raw.py` 提供 `list_runs`/`get_run`/`list_responses`/`get_response`；run 列表按 id 倒序并支持平台/状态过滤；response 列表通过 join 支持平台过滤、不返回 `body`；详情返回 `body_size`、`body_truncated`、`content_type`。
+  - **修改**（及原因）: `app/main.py` 挂载 4 个 raw 路由；`tests/conftest.py` 补齐 `sync_run` 真实列（`scope`/`command`/`finished_at`/`error`），避免测试 schema 与生产漂移。
+- **相关代码**: `web/backend/app/raw.py`（`get_response`、`list_responses`）、`web/backend/app/main.py`。
+- **验证结果**: `pytest -q tests/test_raw.py` 13 项通过；真实库 `/api/runs?limit=5` 返回 695 总数中的 5 条，`/api/responses?limit=5` 共 17469 条且不含 body，response 1 解析为 JSON。
 
 ### 阶段 2：前端骨架与数据浏览
 
