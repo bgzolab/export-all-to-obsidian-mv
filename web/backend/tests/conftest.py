@@ -26,6 +26,13 @@ CREATE TABLE zhihu_content (
     author_json TEXT,
     response_id INTEGER NOT NULL
 );
+CREATE TABLE bilibili_fav_item (
+    fav_id INTEGER NOT NULL,
+    media_id INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    cover TEXT,
+    PRIMARY KEY (fav_id, media_id)
+);
 CREATE TABLE sync_run (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     platform TEXT NOT NULL,
