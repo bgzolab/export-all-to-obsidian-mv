@@ -224,6 +224,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/backend/app/main.py`（`serve_frontend`）、`web/backend/tests/test_static.py`。
 - **验证结果**: `pytest -q tests/test_static.py` 4 项通过；生产端口 8789 实测 `/` 与 `/t/zhihu_content` 返回 SPA HTML、`/api/health` 200、`/api/nope` 404；允许源返回 CORS 头、非允许源无 CORS 头。
 
+#### TASK-017 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 补齐 web、后端、前端三份 README，覆盖安装、开发、生产、配置、测试、LAN 无鉴权风险和 OpenVue 锁版本策略。
+- **逻辑变更**:
+  - **新增**: `web/README.md`、`web/backend/README.md`、`web/frontend/README.md`。
+  - **修改**（及原因）: 无代码改动；文档明确默认只绑 `127.0.0.1`，`--host 0.0.0.0` 会暴露全部私人数据，写入功能上线前必须加 token。
+- **相关代码**: `web/README.md`、`web/backend/README.md`、`web/frontend/README.md`。
+- **验证结果**: 按 README 用全新 `/tmp` venv 安装 `requirements.txt` 并启动 8791，`/` 与 `/api/schema` 均 200；`npm ci && npm run build` 通过。
+
 ### 阶段 4：集成、文档与验收
 
 完成标准：生产模式单进程可访问，README 可按步骤复现，测试与冒烟全部通过。
@@ -231,7 +241,7 @@ design: docs/design/web-data-browser.md
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
 | TASK-016 | Completed | FastAPI 托管 `web/frontend/dist`，加 SPA fallback；开发 CORS 仅允许 Vite 源。 | `cd web/frontend && npm run build`；`cd web/backend && uvicorn app.main:app --port 8787`；访问 `http://127.0.0.1:8787/` 和深链 `/t/zhihu_content` 正常；开发模式 `npm run dev` 经 proxy 调 API 正常。 | 2026-11-20 |
-| TASK-017 | Pending | 编写 `web/README.md`、后端/前端 README：安装、开发、生产、LAN 绑定、无鉴权风险、未来 token 提醒，并注明选择 OpenVue 1.1.1（MIT fork）的原因和锁版本策略。 | 按 README 从干净 venv + `npm ci` 启动成功；README 明确 `--host 0.0.0.0` 的风险。 | |
+| TASK-017 | Completed | 编写 `web/README.md`、后端/前端 README：安装、开发、生产、LAN 绑定、无鉴权风险、未来 token 提醒，并注明选择 OpenVue 1.1.1（MIT fork）的原因和锁版本策略。 | 按 README 从干净 venv + `npm ci` 启动成功；README 明确 `--host 0.0.0.0` 的风险。 | 2026-11-20 |
 | TASK-018 | Pending | 补齐后端 pytest、前端 Vitest（主键编解码/时间格式化/渲染器选择）、`typecheck`/`build`，执行全平台 + raw 冒烟和性能检查。 | `cd web/backend && pytest -q` 全通过；`cd web/frontend && npm run typecheck && npm run test && npm run build` 全通过；10 平台 + raw 冒烟清单通过；当前库列表查询 p95 < 100ms、2MB raw 详情 < 500ms。 | |
 
 ## 涉及文件
