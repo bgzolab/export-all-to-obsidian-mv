@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from . import db, query, raw, schema
-from .config import CORS_ORIGINS
+from .config import CORS_ORIGINS, get_frontend_dist
 from .models import QueryRequest, RowRequest
 
 app = FastAPI(title='eto data browser', version='0.1.0')
@@ -110,3 +111,26 @@ def get_response(response_id: int, connection=Depends(db.get_connection)) -> dic
     if result is None:
         raise HTTPException(status_code=404, detail='response not found')
     return result
+
+
+@app.get('/{full_path:path}', include_in_schema=False)
+def serve_frontend(full_path: str):
+    """Serve the built Vue app, including SPA deep links.
+
+    This catch-all is registered after every API route so known endpoints win.
+    Unknown `/api/...` paths must stay JSON 404s instead of falling back to
+    index.html; real files under dist are served directly, everything else gets
+    the SPA entry point for Vue Router.
+    """
+    if full_path.startswith('api/'):
+        raise HTTPException(status_code=404, detail='not found')
+
+    dist = get_frontend_dist().resolve()
+    index = dist / 'index.html'
+    if not index.is_file():
+        raise HTTPException(status_code=404, detail='frontend not built')
+
+    candidate = (dist / full_path).resolve() if full_path else index
+    if candidate.is_file() and candidate.is_relative_to(dist):
+        return FileResponse(candidate)
+    return FileResponse(index)

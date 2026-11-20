@@ -214,13 +214,23 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/views/RawResponseView.vue`。
 - **验证结果**: `npm run build` 通过；Playwright 实测 JSON response 树可展开、复制内容与剪贴板一致、下载 `response-1.json` 内容一致；纯文本 HTML response 正确显示；空 body 显示传输错误提示；模拟 3MB 响应显示 2MB 截断警告。
 
+#### TASK-016 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: FastAPI 在生产模式托管 `web/frontend/dist` 并提供 SPA 深链 fallback；未知 `/api/*` 保持 JSON 404。
+- **逻辑变更**:
+  - **新增**: `app/main.py` 末尾 catch-all 路由，优先返回 dist 内真实文件，否则返回 `index.html`；路径穿越被 `is_relative_to` 拦截；`tests/test_static.py` 覆盖根路径、深链、静态资源、未知 API 与 dist 缺失。
+  - **修改**（及原因）: 无既有行为改动；CORS 仍只允许 Vite 开发源。
+- **相关代码**: `web/backend/app/main.py`（`serve_frontend`）、`web/backend/tests/test_static.py`。
+- **验证结果**: `pytest -q tests/test_static.py` 4 项通过；生产端口 8789 实测 `/` 与 `/t/zhihu_content` 返回 SPA HTML、`/api/health` 200、`/api/nope` 404；允许源返回 CORS 头、非允许源无 CORS 头。
+
 ### 阶段 4：集成、文档与验收
 
 完成标准：生产模式单进程可访问，README 可按步骤复现，测试与冒烟全部通过。
 
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
-| TASK-016 | Pending | FastAPI 托管 `web/frontend/dist`，加 SPA fallback；开发 CORS 仅允许 Vite 源。 | `cd web/frontend && npm run build`；`cd web/backend && uvicorn app.main:app --port 8787`；访问 `http://127.0.0.1:8787/` 和深链 `/t/zhihu_content` 正常；开发模式 `npm run dev` 经 proxy 调 API 正常。 | |
+| TASK-016 | Completed | FastAPI 托管 `web/frontend/dist`，加 SPA fallback；开发 CORS 仅允许 Vite 源。 | `cd web/frontend && npm run build`；`cd web/backend && uvicorn app.main:app --port 8787`；访问 `http://127.0.0.1:8787/` 和深链 `/t/zhihu_content` 正常；开发模式 `npm run dev` 经 proxy 调 API 正常。 | 2026-11-20 |
 | TASK-017 | Pending | 编写 `web/README.md`、后端/前端 README：安装、开发、生产、LAN 绑定、无鉴权风险、未来 token 提醒，并注明选择 OpenVue 1.1.1（MIT fork）的原因和锁版本策略。 | 按 README 从干净 venv + `npm ci` 启动成功；README 明确 `--host 0.0.0.0` 的风险。 | |
 | TASK-018 | Pending | 补齐后端 pytest、前端 Vitest（主键编解码/时间格式化/渲染器选择）、`typecheck`/`build`，执行全平台 + raw 冒烟和性能检查。 | `cd web/backend && pytest -q` 全通过；`cd web/frontend && npm run typecheck && npm run test && npm run build` 全通过；10 平台 + raw 冒烟清单通过；当前库列表查询 p95 < 100ms、2MB raw 详情 < 500ms。 | |
 
