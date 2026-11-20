@@ -141,6 +141,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/components/FilterBar.vue`、`web/frontend/src/utils/time.ts`、`web/frontend/src/views/TableView.vue`。
 - **验证结果**: `npm run build` 通过；Playwright 实测 `updated_time >= 2025-01-01` 后总数 2968 → 1434，请求包含 epoch 值，URL 含 `filters`，删除后 URL 与总数恢复。
 
+#### TASK-011 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 新增 base64url 主键编解码、详情路由与详情页，列表行点击可进入详情，支持单列与复合主键。
+- **逻辑变更**:
+  - **新增**: `utils/pk.ts`（base64url JSON 编解码，支持 UTF-8）、`views/DetailView.vue`（加载/404/错误状态、字段表）、`api.getRow`。
+  - **修改**（及原因）: 列表请求始终并上主键列，避免用户隐藏主键后无法生成详情链接；详情路由 `/t/:table/:pk`；DataTable 增加 `row-click` 与手型光标。
+- **相关代码**: `web/frontend/src/utils/pk.ts`、`web/frontend/src/views/DetailView.vue`、`web/frontend/src/views/TableView.vue`。
+- **验证结果**: `npm run build` 通过；Playwright 实测 `zhihu_content` 行点击进入详情且标题匹配、刷新详情 URL 正常；`bilibili_fav_item` 复合主键解码为 `{fav_id, media_id}`；不存在主键显示“记录不存在”。
+
 ### 阶段 2：前端骨架与数据浏览
 
 完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
@@ -151,7 +161,7 @@ design: docs/design/web-data-browser.md
 | TASK-008 | Completed | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | 2026-11-20 |
 | TASK-009 | Completed | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | 2026-11-20 |
 | TASK-010 | Completed | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | 2026-11-20 |
-| TASK-011 | Pending | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | |
+| TASK-011 | Completed | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | 2026-11-20 |
 | TASK-012 | Pending | 实现 `FieldRenderer`/`JsonTree` 及 `time/html/renderers` 工具，使用 OpenVue `Tag`/`Image`/`Tree`：文本、长文本、链接、图片、时间、布尔/数字、JSON 树、HTML/Markdown 清洗渲染、`response_id` 跳转。 | 打开 `twitter_tweet` 详情，`author_json` 显示折叠树；`zhihu_content.body_html` 渲染富文本且脚本被清洗；`github_star.readme` 按 Markdown 渲染；`bilibili_media` 显示封面；`v2ex_topic` 的 `response_id` 可跳 raw；时间按配置格式化。 | |
 | TASK-013 | Pending | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | |
 

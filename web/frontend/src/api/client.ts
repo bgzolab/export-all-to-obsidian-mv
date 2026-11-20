@@ -19,6 +19,11 @@ export class ApiError extends Error {
   }
 }
 
+export interface RowResponse {
+  table: string
+  row: Record<string, unknown>
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
@@ -44,5 +49,10 @@ export const api = {
     request<QueryResponse>(`/tables/${encodeURIComponent(table)}/query`, {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+  getRow: (table: string, pk: Record<string, unknown>) =>
+    request<RowResponse>(`/tables/${encodeURIComponent(table)}/row`, {
+      method: 'POST',
+      body: JSON.stringify({ pk }),
     }),
 }

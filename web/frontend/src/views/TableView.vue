@@ -4,7 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from 'openvue/button'
 import Column from 'openvue/column'
 import DataTable from 'openvue/datatable'
-import type { DataTablePageEvent, DataTableSortEvent } from 'openvue/datatable'
+import type {
+  DataTablePageEvent,
+  DataTableRowClickEvent,
+  DataTableSortEvent,
+} from 'openvue/datatable'
 import InputText from 'openvue/inputtext'
 import MultiSelect from 'openvue/multiselect'
 
@@ -12,6 +16,7 @@ import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
 import { useSchema } from '@/composables/useSchema'
 import { defaultListColumns } from '@/config/tables'
+import { encodePk } from '@/utils/pk'
 import FilterBar from '@/components/FilterBar.vue'
 
 const route = useRoute()
@@ -48,6 +53,15 @@ const displayedColumns = computed<ColumnMeta[]>(() =>
     .map((name) => visibleColumns.value.find((column) => column.name === name))
     .filter((column): column is ColumnMeta => Boolean(column)),
 )
+// Always request the primary key, even when the user hides it, so a row click
+// can build the detail URL without a second query.
+const requestColumns = computed(() => {
+  const names = [...selectedColumns.value]
+  for (const name of table.value?.primary_key ?? []) {
+    if (!names.includes(name)) names.push(name)
+  }
+  return names
+})
 const sortField = computed(() => sortSpecs.value[0]?.column ?? '')
 const sortOrder = computed(() => {
   const first = sortSpecs.value[0]
@@ -147,7 +161,7 @@ async function load() {
   loadError.value = ''
   try {
     const response = await api.queryTable(tableName.value, {
-      columns: selectedColumns.value,
+      columns: requestColumns.value,
       filters: filters.value,
       search: search.value || undefined,
       sort: sortSpecs.value,
@@ -214,6 +228,20 @@ function changeSort(event: DataTableSortEvent) {
   navigate({
     sort: `${String(field)}:${event.sortOrder === -1 ? 'desc' : 'asc'}`,
     offset: undefined,
+  })
+}
+
+function openRow(event: DataTableRowClickEvent) {
+  if (!table.value) return
+  const pk: Record<string, unknown> = {}
+  for (const name of table.value.primary_key) {
+    const value = event.data?.[name]
+    if (value === undefined) return
+    pk[name] = value
+  }
+  router.push({
+    name: 'detail',
+    params: { table: tableName.value, pk: encodePk(pk) },
   })
 }
 
@@ -288,6 +316,7 @@ function cellText(value: unknown): string {
         scrollable
         @page="changePage"
         @sort="changeSort"
+        @row-click="openRow"
       >
         <Column
           v-for="column in displayedColumns"
@@ -332,5 +361,9 @@ function cellText(value: unknown): string {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+:deep(tbody tr) {
+  cursor: pointer;
 }
 </style>
