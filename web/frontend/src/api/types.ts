@@ -56,3 +56,52 @@ export interface QueryResponse {
   limit: number
   offset: number
 }
+
+export interface RunSummary {
+  id: number
+  platform: string
+  operation: string
+  scope: string | null
+  command: string | null
+  started_at: string
+  finished_at: string | null
+  status: string
+  error: string | null
+}
+
+export interface RunsResponse {
+  runs: RunSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface RunDetailResponse {
+  run: RunSummary
+  response_count: number
+}
+
+export interface ResponseSummary {
+  id: number
+  run_id: number
+  endpoint: string
+  request: unknown
+  status_code: number | null
+  fetched_at: string
+  sha256: string | null
+  error: string | null
+}
+
+export interface ResponsesResponse {
+  responses: ResponseSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface ResponseDetail extends ResponseSummary {
+  body: unknown
+  body_truncated: boolean
+  body_size: number
+  content_type: 'json' | 'text' | 'empty'
+}

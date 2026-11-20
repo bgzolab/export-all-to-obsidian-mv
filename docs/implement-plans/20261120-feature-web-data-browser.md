@@ -101,6 +101,20 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/backend/app/raw.py`（`get_response`、`list_responses`）、`web/backend/app/main.py`。
 - **验证结果**: `pytest -q tests/test_raw.py` 13 项通过；真实库 `/api/runs?limit=5` 返回 695 总数中的 5 条，`/api/responses?limit=5` 共 17469 条且不含 body，response 1 解析为 JSON。
 
+### 阶段 2：前端骨架与数据浏览
+
+完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
+
+| Task | Status | Description | Verification Steps | Date |
+| --- | --- | --- | --- | --- |
+| TASK-007 | Completed | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | 2026-11-20 |
+| TASK-008 | Completed | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | 2026-11-20 |
+| TASK-009 | Completed | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | 2026-11-20 |
+| TASK-010 | Completed | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | 2026-11-20 |
+| TASK-011 | Completed | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | 2026-11-20 |
+| TASK-012 | Completed | 实现 `FieldRenderer`/`JsonTree` 及 `time/html/renderers` 工具，使用 OpenVue `Tag`/`Image`/`Tree`：文本、长文本、链接、图片、时间、布尔/数字、JSON 树、HTML/Markdown 清洗渲染、`response_id` 跳转。 | 打开 `twitter_tweet` 详情，`author_json` 显示折叠树；`zhihu_content.body_html` 渲染富文本且脚本被清洗；`github_star.readme` 按 Markdown 渲染；`bilibili_media` 显示封面；`v2ex_topic` 的 `response_id` 可跳 raw；时间按配置格式化。 | 2026-11-20 |
+| TASK-013 | Completed | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | 2026-11-20 |
+
 #### TASK-007 执行记录
 
 - **状态**: 已完成（2026-11-20）
@@ -171,28 +185,24 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/config/tables.ts`、`web/frontend/src/views/TableView.vue`、`web/frontend/src/views/DetailView.vue`。
 - **验证结果**: `npm run build` 通过；Playwright 逐个打开 10 个平台首表，均显示中文标题、默认排序和 50 行列表，请求列不含大字段；不存在的表显示“未知表”而非崩溃。
 
-### 阶段 2：前端骨架与数据浏览
-
-完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
-
-| Task | Status | Description | Verification Steps | Date |
-| --- | --- | --- | --- | --- |
-| TASK-007 | Completed | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | 2026-11-20 |
-| TASK-008 | Completed | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | 2026-11-20 |
-| TASK-009 | Completed | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | 2026-11-20 |
-| TASK-010 | Completed | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | 2026-11-20 |
-| TASK-011 | Completed | 实现详情页与主键路由：`/t/:table/:pk`，`pk` 为 base64url(JSON)，支持单列/复合主键。 | 点击 `zhihu_content` 行进入详情；`bilibili_fav_item` 复合主键详情可打开；直接访问详情 URL 可加载；不存在显示 404 提示。 | 2026-11-20 |
-| TASK-012 | Completed | 实现 `FieldRenderer`/`JsonTree` 及 `time/html/renderers` 工具，使用 OpenVue `Tag`/`Image`/`Tree`：文本、长文本、链接、图片、时间、布尔/数字、JSON 树、HTML/Markdown 清洗渲染、`response_id` 跳转。 | 打开 `twitter_tweet` 详情，`author_json` 显示折叠树；`zhihu_content.body_html` 渲染富文本且脚本被清洗；`github_star.readme` 按 Markdown 渲染；`bilibili_media` 显示封面；`v2ex_topic` 的 `response_id` 可跳 raw；时间按配置格式化。 | 2026-11-20 |
-| TASK-013 | Completed | 编写 `src/config/tables.ts`，为 10 个平台配置显示名、标题列、列表列、默认排序、时间单位、HTML/Markdown/图片列、隐藏列；未知表走 fallback。 | 逐个平台打开首表，列表有可读标题和默认排序；大字段不在列表请求中；未知新表仍可浏览；手工检查 10 个平台。 | 2026-11-20 |
-
 ### 阶段 3：raw 层 UI
 
 完成标准：raw run/response 可浏览，body 解压后以 JSON 树或文本展示，截断有提示。
 
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
-| TASK-014 | Pending | 实现 `/raw` 与 `/raw/runs/:id`：run 列表、平台/状态过滤、分页、run 内 response 列表。 | `/raw` 显示 695 个 run；按 `platform=zhihu`、`status=success` 过滤；打开 run 看到 response 列表；分页正常。 | |
+| TASK-014 | Completed | 实现 `/raw` 与 `/raw/runs/:id`：run 列表、平台/状态过滤、分页、run 内 response 列表。 | `/raw` 显示 695 个 run；按 `platform=zhihu`、`status=success` 过滤；打开 run 看到 response 列表；分页正常。 | 2026-11-20 |
 | TASK-015 | Pending | 实现 `/raw/responses/:id`：JSON 树/文本、截断提示、复制、下载。 | 打开一个 JSON response，树可展开；打开纯文本 response；大于 2MB 的 response 显示截断提示；复制和下载内容正确。 | |
+
+#### TASK-014 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 实现 raw run 列表与 run 详情，支持平台/状态过滤、分页和 run 内 response 列表跳转。
+- **逻辑变更**:
+  - **新增**: `views/RawRunsView.vue`、`views/RawRunView.vue`；`api/client.ts` 增加 `runs`/`run`/`responses`/`response` 与查询串序列化；`api/types.ts` 增加 raw 类型。
+  - **修改**（及原因）: raw 页面状态同步到 URL（`platform`/`status`/`offset`/`limit`），刷新和后退保持一致；run 详情按 `run_id` 拉 response 并分页。
+- **相关代码**: `web/frontend/src/views/RawRunsView.vue`、`web/frontend/src/views/RawRunView.vue`、`web/frontend/src/api/client.ts`。
+- **验证结果**: `npm run build` 通过；Playwright 实测 `/raw` 显示 695 个 run、翻页 `offset=50`、按 `platform=zhihu` 过滤为 1 个 run、run #354 显示 50 条 response 且行点击跳到 `/raw/responses/2653`。
 
 ### 阶段 4：集成、文档与验收
 

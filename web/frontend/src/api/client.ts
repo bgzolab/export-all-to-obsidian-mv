@@ -2,6 +2,10 @@ import type {
   HealthResponse,
   QueryRequest,
   QueryResponse,
+  ResponseDetail,
+  ResponsesResponse,
+  RunDetailResponse,
+  RunsResponse,
   SchemaResponse,
 } from './types'
 
@@ -24,8 +28,7 @@ export interface RowResponse {
   row: Record<string, unknown>
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {  const response = await fetch(`/api${path}`, {
     ...init,
     headers: { 'content-type': 'application/json', ...init?.headers },
   })
@@ -55,4 +58,27 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ pk }),
     }),
+  runs: (params: { platform?: string; status?: string; limit?: number; offset?: number }) =>
+    request<RunsResponse>(`/runs${queryString(params)}`),
+  run: (id: number | string) => request<RunDetailResponse>(`/runs/${id}`),
+  responses: (params: {
+    run_id?: number
+    platform?: string
+    endpoint?: string
+    status_code?: number
+    q?: string
+    limit?: number
+    offset?: number
+  }) => request<ResponsesResponse>(`/responses${queryString(params)}`),
+  response: (id: number | string) => request<ResponseDetail>(`/responses/${id}`),
+}
+
+/** Serialize defined params only; arrays are not used by the raw API. */
+function queryString(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') search.set(key, String(value))
+  }
+  const encoded = search.toString()
+  return encoded ? `?${encoded}` : ''
 }
