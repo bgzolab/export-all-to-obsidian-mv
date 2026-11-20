@@ -101,13 +101,23 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/backend/app/raw.py`（`get_response`、`list_responses`）、`web/backend/app/main.py`。
 - **验证结果**: `pytest -q tests/test_raw.py` 13 项通过；真实库 `/api/runs?limit=5` 返回 695 总数中的 5 条，`/api/responses?limit=5` 共 17469 条且不含 body，response 1 解析为 JSON。
 
+#### TASK-007 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 建立 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 前端骨架，接入 Aura 主题、路由、API client、基础布局和开发代理。
+- **逻辑变更**:
+  - **新增**: `package.json`（OpenVue/themes 精确 1.1.1）、`vite.config.ts`（`/api` 默认代理 8787，可用 `VITE_API_TARGET` 覆盖）、`tsconfig.json`、`src/main.ts`、`src/App.vue`、`src/router.ts`、`src/api/{client,types}.ts`、`src/views/HomeView.vue` 与基础样式。
+  - **修改**（及原因）: Vitest 从 5.x 降到 3.2.7，规避 npm 10 在可选 peer 依赖上的 `edgesOut` 解析崩溃；其余版本按当前 npm 可用版本锁定。
+- **相关代码**: `web/frontend/src/main.ts`、`web/frontend/vite.config.ts`、`web/frontend/src/api/client.ts`。
+- **验证结果**: `npm run build` 通过；Vite dev server 200，经 proxy 请求 `/api/schema` 返回真实表结构（本机用 5174/8788 避开端口占用）。
+
 ### 阶段 2：前端骨架与数据浏览
 
 完成标准：`npm run dev` 可浏览全部平台表，列表支持搜索/筛选/排序/分页，详情按字段类型渲染。
 
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
-| TASK-007 | Pending | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | |
+| TASK-007 | Completed | 创建 Vue 3 + Vite + TypeScript + OpenVue 1.1.1 骨架，注册 Aura 主题，配置路由、API client、基础布局和 Vite `/api` proxy。 | `cd web/frontend && npm install && npm run dev`；首页请求 `/api/schema` 成功；`npm run build` 通过。 | 2026-11-20 |
 | TASK-008 | Pending | 实现首页和 `PlatformNav`：按平台分组展示表名与行数，点击进入 `/t/:table`。 | 页面显示 10 个平台、26 张表；点击 `zhihu_content` 进入列表；行数与 API 一致。 | |
 | TASK-009 | Pending | 实现通用列表 `TableView`/`DataTable`：用 OpenVue DataTable 的 lazy 模式接服务端分页/排序，加搜索、列选择，查询状态同步到 URL。 | 打开 `/t/zhihu_content`；翻到第 2 页；按 `updated_time` 降序；搜索关键词；刷新页面状态保留；浏览器后退恢复上一组条件；请求参数包含 `limit/offset/sort`。 | |
 | TASK-010 | Pending | 实现 `FilterBar`：按列类型生成输入，支持 `eq/gte/lte/like`、数值和时间范围、增删过滤条件。 | 给 `zhihu_content.updated_time` 加 `gte` 过滤，列表行数变化；删除条件恢复；URL 包含过滤状态。 | |
