@@ -78,8 +78,10 @@ def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
 
     if operator in NULL_OPERATORS:
         return (
-            f'{quote_identifier(column["name"])} IS '
-            f'{"NOT " if operator == "not_null" else ""}NULL',
+            (
+                f'{quote_identifier(column["name"])} IS '
+                f'{"NOT " if operator == "not_null" else ""}NULL'
+            ),
             [],
         )
 
@@ -91,7 +93,7 @@ def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
         if not isinstance(value, str):
             raise _bad_request('like value must be a string')
         return (
-            f'{quote_identifier(column["name"])} LIKE ? ESCAPE \'\\\'',
+            f"{quote_identifier(column['name'])} LIKE ? ESCAPE '\\'",
             [f'%{_escape_like(value)}%'],
         )
 
@@ -144,7 +146,7 @@ def build_where(
         clauses.append(
             '('
             + ' OR '.join(
-                f'{quote_identifier(column["name"])} LIKE ? ESCAPE \'\\\''
+                f"{quote_identifier(column['name'])} LIKE ? ESCAPE '\\'"
                 for column in searchable
             )
             + ')'
@@ -193,7 +195,9 @@ def _order_by(meta: dict, sorts: list) -> str:
     return ', '.join(parts)
 
 
-def build_select(meta: dict, request: QueryRequest) -> tuple[str, list[dict], list[Any]]:
+def build_select(
+    meta: dict, request: QueryRequest
+) -> tuple[str, list[dict], list[Any]]:
     """Return (SQL, selected column metadata, params) for one page."""
     columns = _selected_columns(meta, request.columns)
     where, params = build_where(meta, request.filters, request.search)
@@ -212,7 +216,10 @@ def build_select(meta: dict, request: QueryRequest) -> tuple[str, list[dict], li
 
 def build_count(meta: dict, request: QueryRequest) -> tuple[str, list[Any]]:
     where, params = build_where(meta, request.filters, request.search)
-    return f'SELECT COUNT(*) FROM {quote_identifier(meta["name"])} WHERE {where}', params
+    return (
+        f'SELECT COUNT(*) FROM {quote_identifier(meta["name"])} WHERE {where}',
+        params,
+    )
 
 
 def _decode_row(row: sqlite3.Row, columns: list[dict]) -> dict:
@@ -233,7 +240,9 @@ def _decode_row(row: sqlite3.Row, columns: list[dict]) -> dict:
     return decoded
 
 
-def run_query(connection: sqlite3.Connection, table: str, request: QueryRequest) -> dict:
+def run_query(
+    connection: sqlite3.Connection, table: str, request: QueryRequest
+) -> dict:
     """Execute one filtered, sorted page and return rows plus the total count."""
     meta = resolve_table(connection, table)
     sql, columns, params = build_select(meta, request)
@@ -253,7 +262,9 @@ def run_query(connection: sqlite3.Connection, table: str, request: QueryRequest)
     }
 
 
-def fetch_row(connection: sqlite3.Connection, table: str, pk: dict[str, Any]) -> dict | None:
+def fetch_row(
+    connection: sqlite3.Connection, table: str, pk: dict[str, Any]
+) -> dict | None:
     """Fetch a single row by full primary key; None when it does not exist."""
     meta = resolve_table(connection, table)
     expected = list(meta['primary_key'])

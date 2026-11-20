@@ -35,7 +35,9 @@ def _is_json_column(name: str) -> bool:
 
 
 def _columns(connection: sqlite3.Connection, table: str) -> list[dict]:
-    rows = connection.execute(f'PRAGMA table_info({quote_identifier(table)})').fetchall()
+    rows = connection.execute(
+        f'PRAGMA table_info({quote_identifier(table)})'
+    ).fetchall()
     return [
         {
             'name': row['name'],
@@ -63,8 +65,14 @@ def describe_table(connection: sqlite3.Connection, table: str) -> dict:
     allowlist check of its own.
     """
     columns = _columns(connection, table)
-    primary_key = [column['name'] for column in sorted(columns, key=lambda c: c['pk']) if column['pk']]
-    row_count = connection.execute(f'SELECT COUNT(*) FROM {quote_identifier(table)}').fetchone()[0]
+    primary_key = [
+        column['name']
+        for column in sorted(columns, key=lambda c: c['pk'])
+        if column['pk']
+    ]
+    row_count = connection.execute(
+        f'SELECT COUNT(*) FROM {quote_identifier(table)}'
+    ).fetchone()[0]
     is_raw = table in RAW_TABLES
     return {
         'name': table,
@@ -98,7 +106,11 @@ def find_table(connection: sqlite3.Connection, table: str) -> dict | None:
     if table not in _table_names(connection):
         return None
     columns = _columns(connection, table)
-    primary_key = [column['name'] for column in sorted(columns, key=lambda c: c['pk']) if column['pk']]
+    primary_key = [
+        column['name']
+        for column in sorted(columns, key=lambda c: c['pk'])
+        if column['pk']
+    ]
     is_raw = table in RAW_TABLES
     return {
         'name': table,

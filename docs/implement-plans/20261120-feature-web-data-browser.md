@@ -2,7 +2,7 @@
 goal: 在 web/ 下实现独立的前后端分离数据浏览器，覆盖 10 个平台投影表与 raw 层，只读、局域网可用。
 created: 2026-11-20
 modified: 2026-11-20
-status: Planned
+status: Completed
 design: docs/design/web-data-browser.md
 ---
 
@@ -214,6 +214,16 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/frontend/src/views/RawResponseView.vue`。
 - **验证结果**: `npm run build` 通过；Playwright 实测 JSON response 树可展开、复制内容与剪贴板一致、下载 `response-1.json` 内容一致；纯文本 HTML response 正确显示；空 body 显示传输错误提示；模拟 3MB 响应显示 2MB 截断警告。
 
+### 阶段 4：集成、文档与验收
+
+完成标准：生产模式单进程可访问，README 可按步骤复现，测试与冒烟全部通过。
+
+| Task | Status | Description | Verification Steps | Date |
+| --- | --- | --- | --- | --- |
+| TASK-016 | Completed | FastAPI 托管 `web/frontend/dist`，加 SPA fallback；开发 CORS 仅允许 Vite 源。 | `cd web/frontend && npm run build`；`cd web/backend && uvicorn app.main:app --port 8787`；访问 `http://127.0.0.1:8787/` 和深链 `/t/zhihu_content` 正常；开发模式 `npm run dev` 经 proxy 调 API 正常。 | 2026-11-20 |
+| TASK-017 | Completed | 编写 `web/README.md`、后端/前端 README：安装、开发、生产、LAN 绑定、无鉴权风险、未来 token 提醒，并注明选择 OpenVue 1.1.1（MIT fork）的原因和锁版本策略。 | 按 README 从干净 venv + `npm ci` 启动成功；README 明确 `--host 0.0.0.0` 的风险。 | 2026-11-20 |
+| TASK-018 | Completed | 补齐后端 pytest、前端 Vitest（主键编解码/时间格式化/渲染器选择）、`typecheck`/`build`，执行全平台 + raw 冒烟和性能检查。 | `cd web/backend && pytest -q` 全通过；`cd web/frontend && npm run typecheck && npm run test && npm run build` 全通过；10 平台 + raw 冒烟清单通过；当前库列表查询 p95 < 100ms、2MB raw 详情 < 500ms。 | 2026-11-20 |
+
 #### TASK-016 执行记录
 
 - **状态**: 已完成（2026-11-20）
@@ -234,15 +244,15 @@ design: docs/design/web-data-browser.md
 - **相关代码**: `web/README.md`、`web/backend/README.md`、`web/frontend/README.md`。
 - **验证结果**: 按 README 用全新 `/tmp` venv 安装 `requirements.txt` 并启动 8791，`/` 与 `/api/schema` 均 200；`npm ci && npm run build` 通过。
 
-### 阶段 4：集成、文档与验收
+#### TASK-018 执行记录
 
-完成标准：生产模式单进程可访问，README 可按步骤复现，测试与冒烟全部通过。
-
-| Task | Status | Description | Verification Steps | Date |
-| --- | --- | --- | --- | --- |
-| TASK-016 | Completed | FastAPI 托管 `web/frontend/dist`，加 SPA fallback；开发 CORS 仅允许 Vite 源。 | `cd web/frontend && npm run build`；`cd web/backend && uvicorn app.main:app --port 8787`；访问 `http://127.0.0.1:8787/` 和深链 `/t/zhihu_content` 正常；开发模式 `npm run dev` 经 proxy 调 API 正常。 | 2026-11-20 |
-| TASK-017 | Completed | 编写 `web/README.md`、后端/前端 README：安装、开发、生产、LAN 绑定、无鉴权风险、未来 token 提醒，并注明选择 OpenVue 1.1.1（MIT fork）的原因和锁版本策略。 | 按 README 从干净 venv + `npm ci` 启动成功；README 明确 `--host 0.0.0.0` 的风险。 | 2026-11-20 |
-| TASK-018 | Pending | 补齐后端 pytest、前端 Vitest（主键编解码/时间格式化/渲染器选择）、`typecheck`/`build`，执行全平台 + raw 冒烟和性能检查。 | `cd web/backend && pytest -q` 全通过；`cd web/frontend && npm run typecheck && npm run test && npm run build` 全通过；10 平台 + raw 冒烟清单通过；当前库列表查询 p95 < 100ms、2MB raw 详情 < 500ms。 | |
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 补齐前端 Vitest 共 23 项，后端 pytest 共 61 项，统一 Ruff 检查/格式，完成 10 平台 + raw 冒烟与性能基准。
+- **逻辑变更**:
+  - **新增**: `src/utils/{pk,time,renderers}.test.ts` 与 `src/config/tables.test.ts`；未知表默认列排除 JSON、图片工具兼容 JSON 字符串行。
+  - **修改**（及原因）: 后端路由改用 `Annotated` 数据库依赖，消除 Ruff B008；`ruff format` 统一 web/backend 风格；修正 fallback 列表列包含 JSON 列的问题。
+- **相关代码**: `web/frontend/src/**/*.test.ts`、`web/backend/app/db.py`（`DbConnection`）、`web/frontend/src/config/tables.ts`、`web/frontend/src/utils/renderers.ts`。
+- **验证结果**: `pytest -q` 61 passed；`npm run typecheck && npm run test && npm run build` 通过（23 tests）；`ruff check app tests` 与 `ruff format --check app tests` 通过；生产 8792 Playwright 冒烟覆盖首页 10 平台/26 表、10 平台首表、分页/搜索/详情、raw 695 run、run 详情、JSON/文本 response，页面无 JS 错误；真实库 26 表 208 次列表查询 p95=5.0ms、max=34.4ms；2.1MB raw body 详情 p95=7.9ms 且正确截断；持有写事务期间 schema 与列表查询均 200。
 
 ## 涉及文件
 

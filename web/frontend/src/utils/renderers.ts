@@ -98,6 +98,17 @@ export function collectImageUrls(value: unknown): string[] {
 
   function visit(current: unknown, key = '') {
     if (typeof current === 'string') {
+      const trimmed = current.trim()
+      // Some legacy rows still hold JSON as text even though the column is
+      // marked as JSON; accept both shapes without double-parsing arrays.
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          visit(JSON.parse(trimmed), key)
+          return
+        } catch {
+          // Not JSON after all; fall through to URL handling.
+        }
+      }
       if (!seen.has(current) && (looksLikeImage(current) || key === 'url' || key === 'src')) {
         seen.add(current)
         found.push(current)

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
+from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 
 from .config import get_db_path
 
@@ -45,7 +46,9 @@ def open_readonly() -> sqlite3.Connection:
         # than in the first endpoint query.
         connection.execute('PRAGMA schema_version').fetchone()
     except sqlite3.Error as exc:
-        raise HTTPException(status_code=503, detail=f'database unavailable: {exc}') from exc
+        raise HTTPException(
+            status_code=503, detail=f'database unavailable: {exc}'
+        ) from exc
     return connection
 
 
@@ -56,6 +59,11 @@ def get_connection() -> Iterator[sqlite3.Connection]:
         yield connection
     finally:
         connection.close()
+
+
+# Annotated dependency keeps FastAPI signatures readable and avoids calling
+# Depends() in every default argument (ruff B008).
+DbConnection = Annotated[sqlite3.Connection, Depends(get_connection)]
 
 
 def health() -> dict:

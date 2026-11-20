@@ -13,7 +13,7 @@ import zlib
 from typing import Any
 
 from .config import RAW_BODY_LIMIT
-from .query import MAX_LIMIT, DEFAULT_LIMIT, _escape_like
+from .query import DEFAULT_LIMIT, MAX_LIMIT, _escape_like
 
 RUN_COLUMNS = (
     'id, platform, operation, scope, command, started_at, finished_at, status, error'
@@ -120,9 +120,7 @@ def list_responses(
         params.append(status_code)
     if q:
         pattern = f'%{_escape_like(q.strip())}%'
-        clauses.append(
-            "(r.endpoint LIKE ? ESCAPE '\\' OR r.error LIKE ? ESCAPE '\\')"
-        )
+        clauses.append("(r.endpoint LIKE ? ESCAPE '\\' OR r.error LIKE ? ESCAPE '\\')")
         params.extend([pattern, pattern])
     where = ' AND '.join(clauses) if clauses else '1=1'
     limit, offset = _page(limit, offset)

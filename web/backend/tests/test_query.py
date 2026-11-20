@@ -5,12 +5,12 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-from fastapi import HTTPException
-
-from app import db
 from app.models import Filter, QueryRequest, SortSpec
 from app.query import build_select, fetch_row, run_query
 from app.schema import find_table
+from fastapi import HTTPException
+
+from app import db
 
 
 @pytest.fixture()
@@ -36,7 +36,11 @@ def seeded(db_path):
     )
     connection.executemany(
         'INSERT INTO bilibili_fav_item (fav_id, media_id, title, cover) VALUES (?, ?, ?, ?)',
-        [(2, 10, 'second fav', None), (1, 30, 'first fav', None), (1, 20, 'also first', None)],
+        [
+            (2, 10, 'second fav', None),
+            (1, 30, 'first fav', None),
+            (1, 20, 'also first', None),
+        ],
     )
     connection.commit()
     connection.close()
@@ -104,7 +108,9 @@ def test_json_columns_are_decoded_and_malformed_values_kept(connection, seeded):
     response = run_query(
         connection,
         'zhihu_content',
-        QueryRequest(columns=['content_id', 'author_json'], sort=[SortSpec(column='content_id')]),
+        QueryRequest(
+            columns=['content_id', 'author_json'], sort=[SortSpec(column='content_id')]
+        ),
     )
     author = {row['content_id']: row['author_json'] for row in response['rows']}
     assert author['1'] == {'name': 'A'}
@@ -123,11 +129,23 @@ def test_hidden_columns_are_rejected(connection, seeded):
 @pytest.mark.parametrize(
     ('query_request', 'detail'),
     [
-        (QueryRequest(filters=[Filter(column='nope', op='eq', value=1)]), 'unknown column'),
-        (QueryRequest(filters=[Filter(column='title', op='regex', value='a')]), 'unknown operator'),
+        (
+            QueryRequest(filters=[Filter(column='nope', op='eq', value=1)]),
+            'unknown column',
+        ),
+        (
+            QueryRequest(filters=[Filter(column='title', op='regex', value='a')]),
+            'unknown operator',
+        ),
         (QueryRequest(sort=[SortSpec(column='nope')]), 'unknown column'),
-        (QueryRequest(sort=[SortSpec(column='title', dir='sideways')]), 'unknown sort direction'),
-        (QueryRequest(filters=[Filter(column='author_json', op='eq', value='{}')]), 'not supported'),
+        (
+            QueryRequest(sort=[SortSpec(column='title', dir='sideways')]),
+            'unknown sort direction',
+        ),
+        (
+            QueryRequest(filters=[Filter(column='author_json', op='eq', value='{}')]),
+            'not supported',
+        ),
     ],
 )
 def test_invalid_requests_are_400(connection, seeded, query_request, detail):
@@ -159,13 +177,19 @@ def test_injection_string_is_bound_as_value(connection, seeded, db_path):
     )
     assert payload not in sql
     assert payload in params
-    assert _query(connection, QueryRequest(filters=[Filter(column='title', op='eq', value=payload)])) == ['5']
+    assert _query(
+        connection,
+        QueryRequest(filters=[Filter(column='title', op='eq', value=payload)]),
+    ) == ['5']
 
 
 def test_fetch_row_supports_compound_primary_key(connection, seeded):
     row = fetch_row(connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 30})
     assert row['row']['title'] == 'first fav'
-    assert fetch_row(connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 99}) is None
+    assert (
+        fetch_row(connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 99})
+        is None
+    )
 
 
 def test_fetch_row_requires_exact_primary_key(connection, seeded):
@@ -173,5 +197,7 @@ def test_fetch_row_requires_exact_primary_key(connection, seeded):
         fetch_row(connection, 'bilibili_fav_item', {'fav_id': 1})
     assert excinfo.value.status_code == 400
     with pytest.raises(HTTPException) as excinfo:
-        fetch_row(connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 30, 'x': 1})
+        fetch_row(
+            connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 30, 'x': 1}
+        )
     assert excinfo.value.status_code == 400

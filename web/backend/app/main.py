@@ -7,7 +7,7 @@ hosting of the built frontend is added by the integration task.
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -33,15 +33,13 @@ def health() -> dict:
 
 
 @app.get('/api/schema')
-def get_schema(connection=Depends(db.get_connection)) -> dict:
+def get_schema(connection: db.DbConnection) -> dict:
     """Describe all tables so the UI can drive itself from the live database."""
     return schema.describe_database(connection)
 
 
 @app.post('/api/tables/{table}/query')
-def query_table(
-    table: str, request: QueryRequest, connection=Depends(db.get_connection)
-) -> dict:
+def query_table(table: str, request: QueryRequest, connection: db.DbConnection) -> dict:
     """Run one page of a filtered/sorted table query.
 
     The request model only validates shape; query.py applies the schema
@@ -51,9 +49,7 @@ def query_table(
 
 
 @app.post('/api/tables/{table}/row')
-def get_row(
-    table: str, request: RowRequest, connection=Depends(db.get_connection)
-) -> dict:
+def get_row(table: str, request: RowRequest, connection: db.DbConnection) -> dict:
     """Fetch one row by its full primary key (single or composite)."""
     result = query.fetch_row(connection, table, request.pk)
     if result is None:
@@ -63,11 +59,11 @@ def get_row(
 
 @app.get('/api/runs')
 def get_runs(
+    connection: db.DbConnection,
     platform: str | None = None,
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    connection=Depends(db.get_connection),
 ) -> dict:
     return raw.list_runs(
         connection, platform=platform, status=status, limit=limit, offset=offset
@@ -75,7 +71,7 @@ def get_runs(
 
 
 @app.get('/api/runs/{run_id}')
-def get_run(run_id: int, connection=Depends(db.get_connection)) -> dict:
+def get_run(run_id: int, connection: db.DbConnection) -> dict:
     result = raw.get_run(connection, run_id)
     if result is None:
         raise HTTPException(status_code=404, detail='run not found')
@@ -84,6 +80,7 @@ def get_run(run_id: int, connection=Depends(db.get_connection)) -> dict:
 
 @app.get('/api/responses')
 def get_responses(
+    connection: db.DbConnection,
     run_id: int | None = None,
     platform: str | None = None,
     endpoint: str | None = None,
@@ -91,7 +88,6 @@ def get_responses(
     q: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    connection=Depends(db.get_connection),
 ) -> dict:
     return raw.list_responses(
         connection,
@@ -106,7 +102,7 @@ def get_responses(
 
 
 @app.get('/api/responses/{response_id}')
-def get_response(response_id: int, connection=Depends(db.get_connection)) -> dict:
+def get_response(response_id: int, connection: db.DbConnection) -> dict:
     result = raw.get_response(connection, response_id)
     if result is None:
         raise HTTPException(status_code=404, detail='response not found')

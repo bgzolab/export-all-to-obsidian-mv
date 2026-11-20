@@ -356,7 +356,7 @@ export function defaultListColumns(table: {
   columns: Array<{ name: string; json: boolean; hidden?: boolean }>
 }): string[] {
   const visible = table.columns.filter(
-    (column) => !column.hidden && !LARGE_COLUMNS.has(column.name),
+    (column) => !column.hidden && !column.json && !LARGE_COLUMNS.has(column.name),
   )
   const primary = table.primary_key.filter((name) =>
     visible.some((column) => column.name === name),

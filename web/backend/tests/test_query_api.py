@@ -47,7 +47,10 @@ def test_query_returns_rows_columns_and_total(client, seeded):
 def test_query_decodes_json_columns(client, seeded):
     response = client.post(
         '/api/tables/zhihu_content/query',
-        json={'columns': ['content_id', 'author_json'], 'sort': [{'column': 'content_id'}]},
+        json={
+            'columns': ['content_id', 'author_json'],
+            'sort': [{'column': 'content_id'}],
+        },
     )
     authors = {row['content_id']: row['author_json'] for row in response.json()['rows']}
     assert authors['1'] == {'name': 'A'}
@@ -65,7 +68,10 @@ def test_query_clamps_limit_to_200(client, seeded):
     'payload,detail',
     [
         ({'columns': ['nope']}, 'unknown column'),
-        ({'filters': [{'column': 'title', 'op': 'regex', 'value': 'a'}]}, 'unknown operator'),
+        (
+            {'filters': [{'column': 'title', 'op': 'regex', 'value': 'a'}]},
+            'unknown operator',
+        ),
         ({'columns': ['body']}, 'not queryable'),
     ],
 )
@@ -83,7 +89,9 @@ def test_query_rejects_unknown_table(client):
 
 def test_query_rejects_hidden_body_column(client):
     # Even selecting the compressed raw body through the generic API must fail.
-    response = client.post('/api/tables/sync_response/query', json={'columns': ['body']})
+    response = client.post(
+        '/api/tables/sync_response/query', json={'columns': ['body']}
+    )
     assert response.status_code == 400
     assert response.json()['detail'] == 'column is not queryable: body'
 

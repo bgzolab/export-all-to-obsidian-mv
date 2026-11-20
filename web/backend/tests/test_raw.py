@@ -14,7 +14,7 @@ BIG_BODY = b'{"data":"' + b'a' * (2 * 1024 * 1024 + 10) + b'"}'
 def raw_data(db_path):
     connection = sqlite3.connect(db_path)
     connection.executemany(
-        "INSERT INTO sync_run (platform, operation, status, started_at) VALUES (?, ?, ?, ?)",
+        'INSERT INTO sync_run (platform, operation, status, started_at) VALUES (?, ?, ?, ?)',
         [
             ('zhihu', 'contents', 'success', '2026-11-20T10:00:00Z'),
             ('v2ex', 'favorites', 'partial', '2026-11-20T11:00:00Z'),
@@ -24,9 +24,30 @@ def raw_data(db_path):
         'INSERT INTO sync_response (run_id, endpoint, request, status_code, fetched_at, body) '
         'VALUES (?, ?, ?, ?, ?, ?)',
         [
-            (1, 'zhihu.contents.page', '{"page": 1}', 200, '2026-11-20T10:00:01Z', zlib.compress(b'{"ok": 1}')),
-            (1, 'zhihu.author.detail', None, 200, '2026-11-20T10:00:02Z', zlib.compress(b'plain text')),
-            (2, 'v2ex.favorites.page', '{"page": 2}', 200, '2026-11-20T11:00:01Z', zlib.compress(BIG_BODY)),
+            (
+                1,
+                'zhihu.contents.page',
+                '{"page": 1}',
+                200,
+                '2026-11-20T10:00:01Z',
+                zlib.compress(b'{"ok": 1}'),
+            ),
+            (
+                1,
+                'zhihu.author.detail',
+                None,
+                200,
+                '2026-11-20T10:00:02Z',
+                zlib.compress(b'plain text'),
+            ),
+            (
+                2,
+                'v2ex.favorites.page',
+                '{"page": 2}',
+                200,
+                '2026-11-20T11:00:01Z',
+                zlib.compress(BIG_BODY),
+            ),
             (2, 'v2ex.balance', None, None, '2026-11-20T11:00:02Z', None),
         ],
     )
@@ -78,11 +99,17 @@ def test_responses_list_never_returns_body(client, raw_data):
 
 
 def test_responses_filter_by_run_platform_and_keyword(client, raw_data):
-    assert [item['id'] for item in client.get('/api/responses?run_id=1').json()['responses']] == [2, 1]
-    assert [item['id'] for item in client.get('/api/responses?platform=v2ex').json()['responses']] == [4, 3]
-    assert [item['endpoint'] for item in client.get('/api/responses?q=author').json()['responses']] == [
-        'zhihu.author.detail'
-    ]
+    assert [
+        item['id'] for item in client.get('/api/responses?run_id=1').json()['responses']
+    ] == [2, 1]
+    assert [
+        item['id']
+        for item in client.get('/api/responses?platform=v2ex').json()['responses']
+    ] == [4, 3]
+    assert [
+        item['endpoint']
+        for item in client.get('/api/responses?q=author').json()['responses']
+    ] == ['zhihu.author.detail']
 
 
 def test_response_detail_parses_json_body(client, raw_data):
