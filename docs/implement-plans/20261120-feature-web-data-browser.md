@@ -192,7 +192,7 @@ design: docs/design/web-data-browser.md
 | Task | Status | Description | Verification Steps | Date |
 | --- | --- | --- | --- | --- |
 | TASK-014 | Completed | 实现 `/raw` 与 `/raw/runs/:id`：run 列表、平台/状态过滤、分页、run 内 response 列表。 | `/raw` 显示 695 个 run；按 `platform=zhihu`、`status=success` 过滤；打开 run 看到 response 列表；分页正常。 | 2026-11-20 |
-| TASK-015 | Pending | 实现 `/raw/responses/:id`：JSON 树/文本、截断提示、复制、下载。 | 打开一个 JSON response，树可展开；打开纯文本 response；大于 2MB 的 response 显示截断提示；复制和下载内容正确。 | |
+| TASK-015 | Completed | 实现 `/raw/responses/:id`：JSON 树/文本、截断提示、复制、下载。 | 打开一个 JSON response，树可展开；打开纯文本 response；大于 2MB 的 response 显示截断提示；复制和下载内容正确。 | 2026-11-20 |
 
 #### TASK-014 执行记录
 
@@ -203,6 +203,16 @@ design: docs/design/web-data-browser.md
   - **修改**（及原因）: raw 页面状态同步到 URL（`platform`/`status`/`offset`/`limit`），刷新和后退保持一致；run 详情按 `run_id` 拉 response 并分页。
 - **相关代码**: `web/frontend/src/views/RawRunsView.vue`、`web/frontend/src/views/RawRunView.vue`、`web/frontend/src/api/client.ts`。
 - **验证结果**: `npm run build` 通过；Playwright 实测 `/raw` 显示 695 个 run、翻页 `offset=50`、按 `platform=zhihu` 过滤为 1 个 run、run #354 显示 50 条 response 且行点击跳到 `/raw/responses/2653`。
+
+#### TASK-015 执行记录
+
+- **状态**: 已完成（2026-11-20）
+- **变更摘要**: 实现 raw response 详情，按 content_type 展示 JSON 树或文本，支持截断提示、复制与下载。
+- **逻辑变更**:
+  - **新增**: `views/RawResponseView.vue`，展示 response 元数据、请求参数、body；复制走 Clipboard API，下载用 Blob + 临时 URL。
+  - **修改**（及原因）: 超过 512KB 的 JSON 默认显示文本，避免一次性构建巨大树；截断响应明确提示复制/下载内容同为截断结果。
+- **相关代码**: `web/frontend/src/views/RawResponseView.vue`。
+- **验证结果**: `npm run build` 通过；Playwright 实测 JSON response 树可展开、复制内容与剪贴板一致、下载 `response-1.json` 内容一致；纯文本 HTML response 正确显示；空 body 显示传输错误提示；模拟 3MB 响应显示 2MB 截断警告。
 
 ### 阶段 4：集成、文档与验收
 
