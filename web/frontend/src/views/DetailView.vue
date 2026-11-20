@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, TableMeta } from '@/api/types'
+import FieldRenderer from '@/components/FieldRenderer.vue'
 import { useSchema } from '@/composables/useSchema'
 import { decodePk } from '@/utils/pk'
 
@@ -56,12 +57,6 @@ async function load() {
 }
 
 watch(() => [table.value, pkParam.value] as const, load, { immediate: true })
-
-function cellText(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'object') return JSON.stringify(value, null, 2)
-  return String(value)
-}
 </script>
 
 <template>
@@ -80,8 +75,8 @@ function cellText(value: unknown): string {
       <dl class="fields">
         <template v-for="column in columns" :key="column.name">
           <dt>{{ column.name }}</dt>
-          <dd :class="{ block: typeof row[column.name] === 'object' }">
-            {{ cellText(row[column.name]) }}
+          <dd>
+            <FieldRenderer :table="table.name" :column="column" :value="row[column.name]" />
           </dd>
         </template>
       </dl>
@@ -117,7 +112,6 @@ dd {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
 dd.block {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
