@@ -63,6 +63,16 @@ const canToggleTree = computed(
   () => detail.value?.content_type === 'json' && detail.value.body_size > 512 * 1024,
 )
 
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  json: 'JSON',
+  text: '文本',
+  empty: '空',
+}
+
+function contentTypeLabel(value: string): string {
+  return CONTENT_TYPE_LABELS[value] ?? value
+}
+
 async function copyBody() {
   if (!serializedBody.value) return
   await navigator.clipboard.writeText(serializedBody.value)
@@ -90,31 +100,31 @@ function downloadBody() {
 
 <template>
   <section class="raw-response">
-    <RouterLink to="/raw" class="back">← 返回 raw 列表</RouterLink>
+    <RouterLink to="/raw" class="back">← 返回同步记录</RouterLink>
 
-    <p v-if="loading" class="muted">正在加载 response…</p>
-    <p v-else-if="notFound" class="error">response 不存在。</p>
+    <p v-if="loading" class="muted">正在加载响应…</p>
+    <p v-else-if="notFound" class="error">响应不存在。</p>
     <p v-else-if="loadError" class="error">加载失败：{{ loadError }}</p>
 
     <template v-else-if="detail">
       <div class="heading">
-        <h1>response #{{ detail.id }}</h1>
-        <Tag :value="detail.content_type" severity="secondary" />
+        <h1>响应 #{{ detail.id }}</h1>
+        <Tag :value="contentTypeLabel(detail.content_type)" severity="secondary" />
         <Tag v-if="detail.status_code" :value="String(detail.status_code)" severity="info" />
       </div>
 
       <dl class="meta">
-        <dt>run</dt>
+        <dt>同步批次</dt>
         <dd><RouterLink :to="`/raw/runs/${detail.run_id}`">#{{ detail.run_id }}</RouterLink></dd>
-        <dt>endpoint</dt>
+        <dt>接口</dt>
         <dd>{{ detail.endpoint }}</dd>
-        <dt>fetched_at</dt>
+        <dt>抓取时间</dt>
         <dd>{{ formatTime(detail.fetched_at, 'iso') }}</dd>
-        <dt>body_size</dt>
+        <dt>响应体大小</dt>
         <dd>{{ detail.body_size }} 字节</dd>
-        <dt>sha256</dt>
+        <dt>校验值</dt>
         <dd>{{ detail.sha256 ?? '—' }}</dd>
-        <dt>error</dt>
+        <dt>错误</dt>
         <dd>{{ detail.error ?? '—' }}</dd>
       </dl>
 

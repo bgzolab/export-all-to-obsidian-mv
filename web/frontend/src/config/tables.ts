@@ -2,25 +2,7 @@ import type { SortSpec, TableMeta } from '@/api/types'
 import type { RenderKind } from '@/utils/renderers'
 import type { TimeUnit } from '@/utils/time'
 
-// Platform display names. The fallback keeps unknown/future platforms usable
-// without a code change; table-specific rendering config is added alongside it.
-const PLATFORM_LABELS: Record<string, string> = {
-  bangumi: 'Bangumi',
-  bilibili: '哔哩哔哩',
-  cnblog: '博客园',
-  github: 'GitHub',
-  netease: '网易云音乐',
-  qireader: '起点读书',
-  raw: '原始响应',
-  twitter: 'Twitter / X',
-  v2ex: 'V2EX',
-  weibo: '微博',
-  zhihu: '知乎',
-}
-
-export function platformLabel(platform: string): string {
-  return PLATFORM_LABELS[platform] ?? platform
-}
+export { platformLabel } from './platforms'
 
 interface TableConfig {
   label: string
@@ -236,6 +218,121 @@ export function tableLabel(table: string): string {
   return TABLE_CONFIGS[table]?.label ?? table
 }
 
+const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
+  bangumi_collection: {
+    description: '你在 Bangumi 标记的动画、书籍和游戏，包含评分与进度。',
+    countUnit: '条',
+  },
+  bangumi_subject: {
+    description: 'Bangumi 条目的公开资料，用于补全收藏详情。',
+    countUnit: '条',
+  },
+  bilibili_fav: {
+    description: '哔哩哔哩收藏夹的元数据。',
+    countUnit: '个',
+  },
+  bilibili_fav_item: {
+    description: '收藏夹与视频的对应关系。',
+    countUnit: '条',
+  },
+  bilibili_media: {
+    description: '收藏夹里的视频、专栏和番剧资料。',
+    countUnit: '个',
+  },
+  cnblog_bookmark: {
+    description: '博客园收藏列表。',
+    countUnit: '篇',
+  },
+  cnblog_post: {
+    description: '已抓取的博客园文章正文。',
+    countUnit: '篇',
+  },
+  github_star: {
+    description: '你 Star 过的 GitHub 仓库及 README。',
+    countUnit: '个',
+  },
+  netease_play_record: {
+    description: '最近播放的歌曲快照。',
+    countUnit: '条',
+  },
+  netease_playlist: {
+    description: '网易云账号里的歌单。',
+    countUnit: '个',
+  },
+  netease_playlist_song: {
+    description: '歌单与歌曲的对应关系。',
+    countUnit: '条',
+  },
+  netease_song: {
+    description: '歌单中出现过的歌曲资料。',
+    countUnit: '首',
+  },
+  qireader_article: {
+    description: '已抓取的 RSS 文章正文。',
+    countUnit: '篇',
+  },
+  qireader_entry: {
+    description: 'RSS 稍后读条目。',
+    countUnit: '条',
+  },
+  sync_response: {
+    description: '原始 API 响应，按同步批次归档。',
+    countUnit: '个',
+  },
+  sync_run: {
+    description: '每次同步的执行记录与状态。',
+    countUnit: '次',
+  },
+  twitter_bookmark: {
+    description: 'Twitter 书签关系。',
+    countUnit: '条',
+  },
+  twitter_like: {
+    description: 'Twitter 喜欢关系。',
+    countUnit: '条',
+  },
+  twitter_tweet: {
+    description: '喜欢或书签涉及的推文正文。',
+    countUnit: '条',
+  },
+  v2ex_favorite: {
+    description: 'V2EX 收藏主题关系。',
+    countUnit: '个',
+  },
+  v2ex_reply: {
+    description: '已抓取的 V2EX 主题回复。',
+    countUnit: '条',
+  },
+  v2ex_thanks: {
+    description: 'V2EX 感谢交易记录。',
+    countUnit: '条',
+  },
+  v2ex_topic: {
+    description: '收藏主题的正文与元数据。',
+    countUnit: '个',
+  },
+  weibo_post: {
+    description: '保存的微博正文、图片和互动数。',
+    countUnit: '条',
+  },
+  zhihu_collection_item: {
+    description: '收藏夹与知乎内容的对应关系。',
+    countUnit: '条',
+  },
+  zhihu_content: {
+    description: '收藏的回答、文章和想法正文。',
+    countUnit: '条',
+  },
+}
+
+export function tableDescription(table: string): string {
+  return TABLE_COPY[table]?.description ?? '数据库中的实时记录。'
+}
+
+export function tableCountUnit(table: string): string {
+  return TABLE_COPY[table]?.countUnit ?? '条'
+}
+
 export function titleColumnFor(table: string): string | undefined {
   return TABLE_CONFIGS[table]?.titleColumn
 }
@@ -313,11 +410,12 @@ const TIME_UNIT_OVERRIDES: Record<string, Record<string, TimeUnit>> = {
   },
   netease_play_record: { play_time: 'epoch_ms' },
   netease_playlist: {
-    create_time: 'epoch_s',
-    update_time: 'epoch_s',
-    track_update_time: 'epoch_s',
+    create_time: 'epoch_ms',
+    update_time: 'epoch_ms',
+    track_update_time: 'epoch_ms',
+    detail_track_update_time: 'epoch_ms',
   },
-  netease_song: { publish_time: 'epoch_s' },
+  netease_song: { publish_time: 'epoch_ms' },
   qireader_entry: {
     published_at: 'iso',
     crawled_at: 'epoch_ms',

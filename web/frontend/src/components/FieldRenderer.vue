@@ -13,12 +13,17 @@ import {
   renderKindFor,
   timeUnitFor,
 } from '@/utils/renderers'
+import { durationUnitFor } from '@/config/columns'
+import { formatDuration } from '@/utils/format'
 import { formatTime } from '@/utils/time'
 
 const props = defineProps<{
   table: string
   column: ColumnMeta
   value: unknown
+  expanded?: boolean
+  /** Base URL for relative links in Markdown (for example a GitHub README). */
+  baseUrl?: string
 }>()
 
 const kind = computed(() => renderKindFor(props.table, props.column))
@@ -31,16 +36,22 @@ const text = computed(() => {
 
 const html = computed(() => (kind.value === 'html' ? sanitizeHtml(text.value) : ''))
 const markdown = computed(() =>
-  kind.value === 'markdown' ? renderMarkdown(text.value) : '',
+  kind.value === 'markdown' ? renderMarkdown(text.value, props.baseUrl) : '',
 )
 const time = computed(() =>
   formatTime(props.value, timeUnitFor(props.table, props.column)),
 )
+const duration = computed(() => {
+  const unit = durationUnitFor(props.table, props.column.name)
+  return unit ? formatDuration(props.value, unit) : ''
+})
 const imageUrls = computed(() =>
   kind.value === 'images' ? collectImageUrls(asJsonValue(props.value)) : [],
 )
 const isExternal = computed(() => /^https?:\/\//i.test(text.value))
-const isLongText = computed(() => kind.value === 'text' && text.value.length > 500)
+const isLongText = computed(
+  () => !props.expanded && kind.value === 'text' && text.value.length > 500,
+)
 const booleanValue = computed(() => Boolean(props.value))
 </script>
 
@@ -75,6 +86,8 @@ const booleanValue = computed(() => Boolean(props.value))
   <span v-else-if="kind === 'datetime'" :title="String(value)" class="time">
     {{ time }}
   </span>
+
+  <span v-else-if="kind === 'duration'" class="time">{{ duration }}</span>
 
   <Tag
     v-else-if="kind === 'boolean'"

@@ -4,9 +4,12 @@ import Button from 'openvue/button'
 import Select from 'openvue/select'
 
 import type { ColumnMeta, FilterSpec } from '@/api/types'
+import { columnLabel } from '@/config/columns'
+import { timeUnitFor } from '@/utils/renderers'
 import { fromDatetimeLocal, toDatetimeLocal } from '@/utils/time'
 
 const props = defineProps<{
+  table: string
   columns: ColumnMeta[]
   filters: FilterSpec[]
 }>()
@@ -19,8 +22,20 @@ const NULL_OPS = ['is_null', 'not_null']
 const TEXT_OPS = ['eq', 'ne', 'like', ...NULL_OPS]
 const NUMBER_OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', ...NULL_OPS]
 
-// Columns are classified by declared affinity plus a conservative name match;
-// TASK-013 can override units per table when the name alone is ambiguous.
+const OPERATOR_LABELS: Record<string, string> = {
+  eq: '等于',
+  ne: '不等于',
+  gt: '大于',
+  gte: '大于等于',
+  lt: '小于',
+  lte: '小于等于',
+  like: '包含',
+  in: '属于列表',
+  is_null: '为空',
+  not_null: '不为空',
+}
+
+// Columns are classified by declared affinity plus a conservative name match.
 function kindOf(column: ColumnMeta | undefined): ColumnKind {
   if (!column) return 'text'
   if (column.json) return 'json'
@@ -40,11 +55,20 @@ function operatorsFor(column: ColumnMeta | undefined): string[] {
   return TEXT_OPS
 }
 
+function operatorOptions(column: ColumnMeta | undefined) {
+  return operatorsFor(column).map((op) => ({ label: OPERATOR_LABELS[op] ?? op, value: op }))
+}
+
+const filterableColumns = computed(() =>
+  props.columns.map((column) => ({
+    label: columnLabel(props.table, column.name),
+    value: column.name,
+  })),
+)
+
 function columnByName(name: string): ColumnMeta | undefined {
   return props.columns.find((column) => column.name === name)
 }
-
-const filterableColumns = computed(() => props.columns.map((column) => column.name))
 
 function defaultOperator(column: ColumnMeta | undefined): string {
   return operatorsFor(column)[0]
@@ -83,7 +107,7 @@ function changeOperator(index: number, op: unknown) {
 function inputValue(filter: FilterSpec): string {
   const column = columnByName(filter.column)
   if (column && kindOf(column) === 'time') {
-    return toDatetimeLocal(filter.value)
+    return toDatetimeLocal(filter.value, timeUnitFor(props.table, column))
   }
   return filter.value === null || filter.value === undefined ? '' : String(filter.value)
 }
@@ -92,8 +116,8 @@ function changeValue(index: number, raw: string) {
   const filter = props.filters[index]
   const column = columnByName(filter.column)
   const kind = kindOf(column)
-  if (kind === 'time') {
-    const epoch = fromDatetimeLocal(raw)
+  if (kind === 'time' && column) {
+    const epoch = fromDatetimeLocal(raw, timeUnitFor(props.table, column))
     updateFilter(index, { value: epoch ?? '' })
     return
   }
@@ -119,13 +143,17 @@ function removeFilter(index: number) {
       <Select
         :model-value="filter.column"
         :options="filterableColumns"
+        option-label="label"
+        option-value="value"
         size="small"
         aria-label="过滤列"
         @update:model-value="changeColumn(index, $event)"
       />
       <Select
         :model-value="filter.op"
-        :options="operatorsFor(columnByName(filter.column))"
+        :options="operatorOptions(columnByName(filter.column))"
+        option-label="label"
+        option-value="value"
         size="small"
         aria-label="过滤操作符"
         @update:model-value="changeOperator(index, $event)"
@@ -135,32 +163,37 @@ function removeFilter(index: number) {
         class="value-input"
         :type="kindOf(columnByName(filter.column)) === 'time' ? 'datetime-local' : 'text'"
         :value="inputValue(filter)"
-        :aria-label="`过滤值 ${filter.column}`"
+        :aria-label="`过滤值 ${columnLabel(table, filter.column)}`"
         @change="changeValue(index, ($event.target as HTMLInputElement).value)"
       />
       <Button
         type="button"
-        label="删除"
+        label="移除"
         severity="secondary"
         text
         size="small"
-        aria-label="删除过滤条件"
+        aria-label="移除过滤条件"
         @click="removeFilter(index)"
       />
     </div>
     <div class="filter-actions">
       <Button type="button" label="添加过滤条件" size="small" text @click="addFilter" />
-      <span class="hint">时间/数值范围可添加 gte 与 lte 两条条件。</span>
+      <span class="hint">时间/数值范围可添加大于等于与小于等于两条条件。</span>
     </div>
   </div>
 </template>
 
 <style scoped>
 .filter-bar {
-  margin-bottom: 12px;
+  flex: none;
+  margin-bottom: 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
 }
 
 .filter-row {
@@ -174,7 +207,7 @@ function removeFilter(index: number) {
   min-width: 200px;
   padding: 6px 8px;
   border: 1px solid #d1d5db;
-  border-radius: 4px;
+  border-radius: 6px;
   font: inherit;
   font-size: 13px;
   background: #ffffff;

@@ -1,5 +1,6 @@
 import type { ColumnMeta } from '@/api/types'
 import { fieldRenderOverride, timeUnitOverride } from '@/config/tables'
+import { durationUnitFor, isBooleanColumn } from '@/config/columns'
 import type { TimeUnit } from '@/utils/time'
 
 export type RenderKind =
@@ -10,6 +11,7 @@ export type RenderKind =
   | 'images'
   | 'json'
   | 'datetime'
+  | 'duration'
   | 'boolean'
   | 'response_id'
   | 'tag'
@@ -65,6 +67,7 @@ export function renderKindFor(table: string, column: ColumnMeta): RenderKind {
     return 'response_id'
   }
   if (column.json || column.name === 'request') return 'json'
+  if (durationUnitFor(table, column.name)) return 'duration'
   if (IMAGES_NAMES.has(column.name)) return 'images'
   if (column.name === 'readme') return 'markdown'
   if (HTML_NAMES.has(column.name)) return 'html'
@@ -72,7 +75,7 @@ export function renderKindFor(table: string, column: ColumnMeta): RenderKind {
   if (LINK_NAMES.has(column.name)) return 'link'
   if (TAG_NAMES.has(column.name)) return 'tag'
   if (isTimeColumn(column)) return 'datetime'
-  if (/^(is_|has_|can_)/.test(column.name)) return 'boolean'
+  if (isBooleanColumn(column.name)) return 'boolean'
   return 'text'
 }
 

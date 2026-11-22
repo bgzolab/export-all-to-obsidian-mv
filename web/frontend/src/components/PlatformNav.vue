@@ -1,88 +1,134 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
-import type { SchemaResponse, TableMeta } from '@/api/types'
-import { platformLabel } from '@/config/tables'
+import type { SchemaResponse } from '@/api/types'
+import { formatNumber } from '@/utils/format'
+import {
+  platformConfigFor,
+  platformKeyForTable,
+  platformKeys,
+  platformLabel,
+} from '@/config/platforms'
 
 const props = defineProps<{ schema: SchemaResponse }>()
+const route = useRoute()
 
-const groups = computed(() => {
-  const grouped = new Map<string, TableMeta[]>()
-  for (const table of props.schema.tables) {
-    const tables = grouped.get(table.platform) ?? []
-    tables.push(table)
-    grouped.set(table.platform, tables)
-  }
-  // Raw is a backend grouping, not a platform; keep it last so the ten
-  // projection platforms stay visually separate.
-  return [...grouped.entries()].sort(([a], [b]) => {
-    if (a === 'raw') return 1
-    if (b === 'raw') return -1
-    return a.localeCompare(b)
-  })
+const currentPlatform = computed(() =>
+  typeof route.params.table === 'string' ? platformKeyForTable(route.params.table) : '',
+)
+
+const keys = computed(() => platformKeys(Object.keys(props.schema.platforms)))
+
+const counts = computed(() => {
+  const tableCounts = new Map(props.schema.tables.map((table) => [table.name, table.row_count]))
+  return new Map(
+    keys.value.map((key) => {
+      const primary = platformConfigFor(key)?.primaryTable
+      return [key, primary ? (tableCounts.get(primary) ?? 0) : 0]
+    }),
+  )
 })
+
+const rawCount = computed(
+  () =>
+    props.schema.tables.find((table) => table.name === 'sync_response')?.row_count ?? 0,
+)
 </script>
 
 <template>
-  <nav class="platform-nav" aria-label="平台与表">
-    <section v-for="[platform, tables] in groups" :key="platform" class="nav-group">
-      <h2>{{ platformLabel(platform) }}</h2>
-      <ul>
-        <li v-for="table in tables" :key="table.name">
-          <RouterLink :to="`/t/${table.name}`">
-            <span>{{ table.name }}</span>
-            <span class="count">{{ table.row_count }}</span>
-          </RouterLink>
-        </li>
-      </ul>
-    </section>
+  <nav class="platform-nav" aria-label="平台导航">
+    <p class="nav-caption">平台</p>
+    <ul class="nav-list">
+      <li v-for="key in keys" :key="key">
+        <RouterLink
+          :to="`/t/${platformConfigFor(key)?.primaryTable ?? key}`"
+          :class="{ active: currentPlatform === key }"
+        >
+          <span>{{ platformLabel(key) }}</span>
+          <span class="count">{{ formatNumber(counts.get(key) ?? 0) }}</span>
+        </RouterLink>
+      </li>
+    </ul>
+
+    <p class="nav-caption raw-caption">数据审计</p>
+    <ul class="nav-list">
+      <RouterLink to="/raw" class="raw-link">
+        <span>原始响应</span>
+        <span class="count">{{ formatNumber(rawCount) }}</span>
+      </RouterLink>
+    </ul>
   </nav>
 </template>
 
 <style scoped>
 .platform-nav {
-  padding: 12px;
+  padding: 14px 10px;
   font-size: 13px;
 }
 
-.nav-group + .nav-group {
-  margin-top: 16px;
-}
-
-h2 {
-  margin: 0 0 6px;
-  font-size: 12px;
+.nav-caption {
+  margin: 0 6px 6px;
+  color: #9ca3af;
+  font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-ul {
+.raw-caption {
+  margin-top: 20px;
+}
+
+.nav-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 a {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 7px 8px;
+  border-radius: 7px;
   text-decoration: none;
   color: #374151;
 }
 
-a:hover,
+a:hover {
+  background: #f3f4f6;
+}
+
+a.active,
 a.router-link-active {
   background: #eef2ff;
   color: #3730a3;
+  font-weight: 600;
 }
 
 .count {
   color: #9ca3af;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.active .count,
+.router-link-active .count {
+  color: #6366f1;
+}
+
+.raw-link {
+  color: #4b5563;
+}
+
+.nav-placeholder {
+  padding: 6px;
+  color: #9ca3af;
+  font-size: 12px;
 }
 </style>

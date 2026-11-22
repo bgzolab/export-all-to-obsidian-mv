@@ -1,7 +1,7 @@
 ---
 status: 已实现
 created: 2026-11-20
-modified: 2026-11-20
+modified: 2026-11-22
 tags: [feature]
 ---
 
@@ -187,25 +187,35 @@ web/
 
 - Vue 3 + Vite + TypeScript + Vue Router + OpenVue 1.1.1（`openvue/datatable`、`openvue/column`、`openvue/tag`、`openvue/image`、`openvue/tree`）；`dayjs` 时间格式化，`DOMPurify` 清洗 HTML，`marked` 渲染 Markdown；不引入 Pinia/Axios，查询状态放路由 query。
 - 依赖锁精确版本：`openvue@1.1.1`、`@openvue/themes@1.1.1`；OpenVue 是 2026-07 的年轻 fork，升级前跑全量冒烟。
-- 布局：左侧平台/表导航，顶部搜索与数据库状态，主区列表/详情；OpenVue Aura 主题 + 设计 token 调整紧凑密度。
-- 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。
+- 布局：左侧平台导航，顶部品牌与只读状态，主区看板/列表/详情；`html,body,#app` 锁定视口高度，`app-main` 独立滚动，列表页的 DataTable 用 `scrollHeight="flex"` 占满剩余高度，分页器固定在底部。
+- 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。未填值的过滤条件保留在 UI/URL 中但不发送到 SQLite，避免列表闪成 0 行。
 - 路由：
-  - `/` 总览：平台分组、表名、行数。
-  - `/t/:table` 列表：分页、排序、搜索、列选择、过滤条；状态同步到 URL。
+  - `/` 看板：平台主内容数量、平台分布、最近同步、近期成功率；表目录收进“数据说明”弹窗。
+  - `/t/:table` 列表：同平台表切换、分页、排序、搜索、列选择、过滤条；状态同步到 URL。
   - `/t/:table/:pk` 详情：`pk` 为 base64url(JSON)，支持复合主键。
   - `/raw`：run 列表。
   - `/raw/runs/:id`：该 run 的 response 列表。
   - `/raw/responses/:id`：response 详情。
+- 字段可读性由 `src/config/columns.ts` 统一处理：列名中文标签、平台特定取值字典（如知乎 `answer` → 回答、Bangumi 收藏类型）、布尔/时长/时间/ID 的格式化。未知列回退到原始列名。
+- 详情布局由 `src/config/details.ts` 按表声明标题、副标题、封面、正文、互动数、元信息、外链、播放器、关联记录和预览目标：
+  - 文章/主题/推文：标题、作者、时间、互动数、清洗后的正文。
+  - 视频：封面、UP 主、播放/收藏/弹幕数、Bilibili iframe 播放器、简介。
+  - 音乐：专辑封面、歌手、专辑、时长、网易云播放器；歌单显示曲目数并链接到曲目表。
+  - GitHub：仓库名、描述、Stars/Forks/Issues、标签、README（相对图片按 `raw.githubusercontent.com/<repo>/HEAD/` 解析）。
+  - 关联表（`twitter_like`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`）：加载目标行并用 `PreviewCard` 展示标题、摘要和互动数，再链接到完整详情。
+  - 没有平台配置的表回退到通用字段视图，并默认展开“全部字段（技术视图）”。
 - 详情渲染器（按列名/类型选择，按表配置覆盖）：
-  - `text`：普通文本；长文本折叠。
+  - `text`：普通文本；长文本折叠（正文区域传 `expanded` 关闭折叠）。
   - `html`：`body_html`、`content`、`content_rendered`、`long_text` 等，DOMPurify 后渲染。
-  - `markdown`：`github_star.readme` 等，`marked` 渲染后再 DOMPurify。
+  - `markdown`：`github_star.readme` 等，`marked` 渲染后再 DOMPurify；支持相对链接重写。
   - `url` / `image` / `images`：链接、封面、`images_json` / `pic_infos_json` / `attachments_json` 中的图片。
-  - `datetime`：按表配置 `epoch_s` / `epoch_ms` / `iso` / `raw`；悬停显示原值。
+  - `datetime`：按表配置 `epoch_s` / `epoch_ms` / `iso` / `raw`；悬停显示原值。网易云时间列实际为毫秒，配置已修正。
+  - `duration`：Bilibili 秒、网易云毫秒。
   - `json`：`*_json` 列用可折叠 JSON 树，不直接显示字符串。
   - `boolean` / `number` / `tag`。
   - `response_id` / `*_response_id`：跳转 raw response 详情。
-- 每表配置 `src/config/tables.ts`：显示名、标题列、列表列、默认排序、时间列及单位、HTML/Markdown 列、图片列、隐藏列（`body`、`content_json`、`request` 等）。未知表走自动推断。
+- 每表配置 `src/config/tables.ts`：显示名、说明、计数单位、标题列、列表列、默认排序、时间列及单位、HTML/Markdown 列、图片列、隐藏列（`body`、`content_json`、`request` 等）。未知表走自动推断。
+- 看板使用 CSS 横向条形图展示平台分布，不引入图表库；最近同步直接读取 `/api/runs?limit=200`，成功率按已完成 run 计算。
 - raw 详情：JSON 树/文本、截断提示、复制、下载原始文本。
 - 安全：所有 HTML 经 DOMPurify；`v-html` 只用于清洗后的内容；外链 `rel="noopener noreferrer"`。
 
@@ -225,7 +235,7 @@ web/
   - `cd web/frontend && npm ci && npm run build`
   - `cd web/backend && uvicorn app.main:app --host 0.0.0.0 --port 8787`
   - 浏览器访问 `http://<LAN-IP>:8787/`
-- 默认不绑定 `0.0.0.0`；局域网访问必须显式加 `--host 0.0.0.0`，并在 README 写明风险。
+- 本项目按局域网场景使用，启动命令显式绑定 `0.0.0.0`；只在本机使用时去掉 `--host 0.0.0.0`。README 必须保留无鉴权风险说明。
 
 ## 关键决策
 
@@ -263,6 +273,7 @@ web/
 - **RISK-008**：OpenVue 是年轻 fork（2026-07 创建，当前 1.1.1，GitHub 442 stars / 566 open issues），长期维护和社区支持未验证；代码基线是成熟的 PrimeVue 4.5.5，锁精确版本，最坏情况回退 PrimeVue 4.5.5 或 Element Plus。
 - **RISK-009**：前端构建引入 Node 工具链；现有 CI 只有 Ruff/pytest，不覆盖前端。v1 用本地 `typecheck` + `build` + 手工冒烟，CI 集成另立任务。
 - **RISK-010**：offset 分页在深页会变慢；当前数据量小，后续可改 cursor。
+- **RISK-011**：Bilibili/网易云播放器与外链封面依赖第三方页面可用性和防盗链策略；加载失败时保留标题、封面回退或原站链接，不影响文字数据。
 
 ## 验证方式
 
@@ -272,3 +283,4 @@ web/
 - **TEST-004**：raw 冒烟：run 列表、run 详情、response 列表、JSON/文本详情、截断提示、复制/下载。
 - **TEST-005**：并发：`eto --db-only zhihu` 运行时浏览 zhihu 数据不报错。
 - **TEST-006**：性能：当前 297MB 库上列表查询 p95 < 100ms；2MB raw 详情 < 500ms。
+- **TEST-007**：展示层冒烟：首页看板与“数据说明”、字段中文标签、全高列表、空过滤条件不触发 0 行、详情正文/视频/音乐/关联预览、raw 页面标签与滚动。

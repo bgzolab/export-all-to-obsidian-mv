@@ -17,14 +17,14 @@ npm run build      # typecheck + 生产构建到 dist/
 ```text
 src/
 ├── api/            fetch client 与类型
-├── components/     PlatformNav、DataTable 页面组件、FilterBar、FieldRenderer、JsonTree
+├── components/     PlatformNav、CellValue、PreviewCard、FilterBar、FieldRenderer、JsonTree
 ├── composables/    useSchema（页面级 schema 缓存）
-├── config/         平台/表展示配置、渲染与时间单位覆盖
-├── utils/          主键编解码、时间格式化、HTML/Markdown 清洗、渲染器选择
-└── views/          首页、列表、详情、raw run/response 页面
+├── config/         平台看板、表/字段标签、详情布局、渲染与时间单位覆盖
+├── utils/          主键编解码、时间/数值格式化、HTML/Markdown 清洗、渲染器选择
+└── views/          首页看板、列表、详情、raw run/response 页面
 ```
 
-列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复。详情字段由 `FieldRenderer` 按列类型选择渲染器，HTML/Markdown 一律经 DOMPurify 清洗。
+列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复。字段名和取值通过 `config/columns.ts` 中文化，详情布局在 `config/details.ts`，由 `DetailView` 按平台渲染正文、封面、播放器、互动数和关联记录。HTML/Markdown 一律经 DOMPurify 清洗。
 
 ## 依赖与版本策略
 

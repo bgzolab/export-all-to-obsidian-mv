@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Button from 'openvue/button'
 import Column from 'openvue/column'
 import DataTable from 'openvue/datatable'
@@ -14,15 +14,21 @@ import MultiSelect from 'openvue/multiselect'
 
 import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
+import CellValue from '@/components/CellValue.vue'
+import FilterBar from '@/components/FilterBar.vue'
 import { useSchema } from '@/composables/useSchema'
+import { columnLabel } from '@/config/columns'
+import { platformConfigForTable, platformLabel } from '@/config/platforms'
 import {
   defaultSortFor,
   hiddenColumnsFor,
   listColumnsFor,
+  tableCountUnit,
+  tableDescription,
   tableLabel,
 } from '@/config/tables'
+import { formatNumber } from '@/utils/format'
 import { encodePk } from '@/utils/pk'
-import FilterBar from '@/components/FilterBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,15 +38,29 @@ const tableName = computed(() => String(route.params.table ?? ''))
 const table = computed<TableMeta | undefined>(() =>
   schema.value?.tables.find((item) => item.name === tableName.value),
 )
+const platform = computed(() =>
+  table.value ? platformConfigForTable(table.value.name) : undefined,
+)
+
+const siblings = computed(() => {
+  if (!table.value) return []
+  return (schema.value?.tables ?? []).filter((item) => item.platform === table.value?.platform)
+})
 
 const visibleColumns = computed<ColumnMeta[]>(() => {
   const hidden = hiddenColumnsFor(tableName.value)
   return table.value?.columns.filter((column) => !column.hidden && !hidden.has(column.name)) ?? []
 })
-const columnOptions = computed(() => visibleColumns.value.map((column) => column.name))
+const columnOptions = computed(() =>
+  visibleColumns.value.map((column) => ({
+    label: columnLabel(tableName.value, column.name),
+    value: column.name,
+  })),
+)
 
 const rows = ref<Array<Record<string, unknown>>>([])
 const total = ref(0)
+const loaded = ref(false)
 const limit = ref(50)
 const offset = ref(0)
 const search = ref('')
@@ -48,6 +68,7 @@ const searchDraft = ref('')
 const selectedColumns = ref<string[]>([])
 const sortSpecs = ref<SortSpec[]>([])
 const filters = ref<FilterSpec[]>([])
+const filtersOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
 
@@ -74,6 +95,16 @@ const sortOrder = computed(() => {
   if (!first) return 0
   return first.dir === 'desc' ? -1 : 1
 })
+// A just-added filter row starts empty. Keep it in the URL/UI, but do not send
+// it to SQLite until it has a value; otherwise the list flashes to zero rows.
+const activeFilters = computed(() =>
+  filters.value.filter(
+    (filter) =>
+      filter.op === 'is_null' ||
+      filter.op === 'not_null' ||
+      (filter.value !== '' && filter.value !== null && filter.value !== undefined),
+  ),
+)
 
 function readString(value: unknown): string | undefined {
   if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : undefined
@@ -148,6 +179,7 @@ function hydrate() {
   const configuredSort = defaultSortFor(table.value.name)
   sortSpecs.value = parsedSort.length ? parsedSort : configuredSort ? [configuredSort] : []
   filters.value = parseFilters(readString(query.filters))
+  if (filters.value.length) filtersOpen.value = true
 }
 
 function navigate(patch: Record<string, string | undefined>) {
@@ -170,7 +202,7 @@ async function load() {
   try {
     const response = await api.queryTable(tableName.value, {
       columns: requestColumns.value,
-      filters: filters.value,
+      filters: activeFilters.value,
       search: search.value || undefined,
       sort: sortSpecs.value,
       limit: limit.value,
@@ -179,10 +211,12 @@ async function load() {
     if (sequence !== requestSequence) return
     rows.value = response.rows
     total.value = response.total
+    loaded.value = true
   } catch (caught) {
     if (sequence !== requestSequence) return
     rows.value = []
     total.value = 0
+    loaded.value = true
     loadError.value = caught instanceof ApiError ? caught.message : String(caught)
   } finally {
     if (sequence === requestSequence) loading.value = false
@@ -208,7 +242,9 @@ function clearSearch() {
 }
 
 function changeColumns(value: unknown) {
-  const selected = Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  const selected = Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
   // An empty selection would make the backend reject the request; keep the
   // current columns instead of navigating to an invalid state.
   if (!selected.length) return
@@ -252,30 +288,47 @@ function openRow(event: DataTableRowClickEvent) {
     params: { table: tableName.value, pk: encodePk(pk) },
   })
 }
-
-function cellText(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
 </script>
 
 <template>
   <section class="table-view">
-    <p v-if="schemaError" class="error">无法读取 schema：{{ schemaError }}</p>
-    <p v-else-if="!schema" class="muted">正在读取 schema…</p>
+    <p v-if="schemaError" class="error">无法读取数据目录：{{ schemaError }}</p>
+    <p v-else-if="!schema" class="muted">正在读取数据目录…</p>
     <p v-else-if="!table" class="error">未知表：{{ tableName }}</p>
 
     <template v-else>
-      <div class="table-heading">
-        <h1>{{ tableLabel(table.name) }}</h1>
-        <span class="muted">{{ table.name }} · {{ total }} 行</span>
-      </div>
+      <header class="view-header">
+        <p class="breadcrumb">
+          <RouterLink to="/">总览</RouterLink>
+          <span>/</span>
+          <span>{{ platformLabel(table.platform) }}</span>
+        </p>
+        <div class="title-row">
+          <div>
+            <h1>{{ tableLabel(table.name) }}</h1>
+            <p class="description">{{ tableDescription(table.name) }}</p>
+          </div>
+          <span class="count-pill">
+            <template v-if="loaded">{{ formatNumber(total) }} {{ tableCountUnit(table.name) }}</template>
+            <template v-else>…</template>
+          </span>
+        </div>
+        <nav v-if="siblings.length > 1" class="table-tabs" aria-label="同平台数据表">
+          <RouterLink
+            v-for="sibling in siblings"
+            :key="sibling.name"
+            :to="`/t/${sibling.name}`"
+            :class="{ active: sibling.name === table.name }"
+          >
+            {{ tableLabel(sibling.name) }}
+          </RouterLink>
+        </nav>
+      </header>
 
       <form class="toolbar" @submit.prevent="submitSearch">
         <InputText
           v-model="searchDraft"
-          placeholder="搜索文本列…"
+          placeholder="搜索标题或正文…"
           size="small"
           aria-label="搜索"
         />
@@ -289,19 +342,33 @@ function cellText(value: unknown): string {
           text
           @click="clearSearch"
         />
+        <span class="toolbar-spacer" />
+        <Button
+          type="button"
+          :label="filtersOpen ? '收起筛选' : `筛选${filters.length ? ` (${filters.length})` : ''}`"
+          size="small"
+          severity="secondary"
+          outlined
+          @click="filtersOpen = !filtersOpen"
+        />
         <MultiSelect
           :model-value="selectedColumns"
           :options="columnOptions"
-          placeholder="选择列"
+          option-label="label"
+          option-value="value"
+          selected-items-label="{0} 列已选"
+          placeholder="显示列"
           :max-selected-labels="2"
           display="chip"
           size="small"
-          aria-label="选择列"
+          aria-label="显示列"
           @update:model-value="changeColumns"
         />
       </form>
 
       <FilterBar
+        v-if="filtersOpen"
+        :table="table.name"
         :columns="visibleColumns"
         :filters="filters"
         @update:filters="changeFilters"
@@ -309,69 +376,180 @@ function cellText(value: unknown): string {
 
       <p v-if="loadError" class="error">查询失败：{{ loadError }}</p>
 
-      <DataTable
-        :value="rows"
-        :lazy="true"
-        :paginator="true"
-        :rows="limit"
-        :first="offset"
-        :total-records="total"
-        :rows-per-page-options="[25, 50, 100, 200]"
-        :loading="loading"
-        :sort-field="sortField"
-        :sort-order="sortOrder"
-        size="small"
-        scrollable
-        @page="changePage"
-        @sort="changeSort"
-        @row-click="openRow"
-      >
-        <Column
-          v-for="column in displayedColumns"
-          :key="column.name"
-          :field="column.name"
-          :header="column.name"
-          :sortable="!column.json"
+      <div class="table-frame">
+        <DataTable
+          :value="rows"
+          :lazy="true"
+          :paginator="true"
+          :rows="limit"
+          :first="offset"
+          :total-records="total"
+          :rows-per-page-options="[25, 50, 100, 200]"
+          :loading="loading"
+          :sort-field="sortField"
+          :sort-order="sortOrder"
+          size="small"
+          scrollable
+          scroll-height="flex"
+          @page="changePage"
+          @sort="changeSort"
+          @row-click="openRow"
         >
-          <template #body="{ data }">
-            <span class="cell">{{ cellText(data[column.name]) }}</span>
+          <Column
+            v-for="column in displayedColumns"
+            :key="column.name"
+            :field="column.name"
+            :sortable="!column.json"
+          >
+            <template #header>
+              <span :title="column.name">{{ columnLabel(table.name, column.name) }}</span>
+            </template>
+            <template #body="{ data }">
+              <CellValue :table="table.name" :column="column" :value="data[column.name]" />
+            </template>
+          </Column>
+          <template #empty>
+            <p class="empty-message">没有匹配的记录。</p>
           </template>
-        </Column>
-      </DataTable>
+        </DataTable>
+      </div>
     </template>
   </section>
 </template>
 
 <style scoped>
-.table-heading {
+.table-view {
+  height: 100%;
+  min-height: 0;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 10px;
+  flex-direction: column;
 }
 
-.table-heading h1 {
-  margin: 0;
+.view-header {
+  flex: none;
+  margin-bottom: 12px;
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 7px;
+  margin: 0 0 6px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.breadcrumb a {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: #4338ca;
+}
+
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.description {
+  margin: 2px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.count-pill {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.table-tabs a {
+  padding: 4px 9px;
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.table-tabs a:hover {
+  background: #f3f4f6;
+}
+
+.table-tabs a.active {
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 600;
 }
 
 .toolbar {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.cell {
-  display: inline-block;
-  max-width: 420px;
+.toolbar-spacer {
+  flex: 1;
+}
+
+.table-frame {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 4px 10px 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
+}
+
+.table-frame :deep(.p-datatable) {
+  height: 100%;
+}
+
+.table-frame :deep(.p-datatable-table-container) {
+  min-height: 0;
+}
+
+.empty-message {
+  padding: 22px;
+  color: #9ca3af;
+  text-align: center;
 }
 
 :deep(tbody tr) {
   cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .table-view {
+    height: auto;
+    min-height: 60vh;
+  }
+
+  .table-frame {
+    min-height: 60vh;
+  }
+
+  .title-row {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 </style>

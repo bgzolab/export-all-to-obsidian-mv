@@ -10,6 +10,8 @@ import Tag from 'openvue/tag'
 import { ApiError, api } from '@/api/client'
 import type { RunSummary } from '@/api/types'
 import { useSchema } from '@/composables/useSchema'
+import { operationLabel, statusLabel, statusSeverity } from '@/config/columns'
+import { platformLabel } from '@/config/platforms'
 import { formatTime } from '@/utils/time'
 
 const route = useRoute()
@@ -33,11 +35,11 @@ const platformOptions = computed(() => [
   ...[...new Set(Object.keys(schema.value?.platforms ?? {}))]
     .filter((name) => name !== 'raw')
     .sort()
-    .map((name) => ({ label: name, value: name })),
+    .map((name) => ({ label: platformLabel(name), value: name })),
 ])
 const statusOptions = computed(() => [
   { label: '全部状态', value: '' },
-  ...STATUS_OPTIONS.map((name) => ({ label: name, value: name })),
+  ...STATUS_OPTIONS.map((name) => ({ label: statusLabel(name), value: name })),
 ])
 
 function readString(value: unknown): string | undefined {
@@ -113,20 +115,16 @@ function changePage(event: DataTablePageEvent) {
 function openRun(event: DataTableRowClickEvent) {
   router.push(`/raw/runs/${event.data.id}`)
 }
-
-function statusSeverity(value: string): string {
-  if (value === 'success') return 'success'
-  if (value === 'failed') return 'danger'
-  if (value === 'running') return 'info'
-  return 'warn'
-}
 </script>
 
 <template>
   <section class="raw-runs">
     <div class="heading">
-      <h1>raw 同步记录</h1>
-      <span class="muted">{{ total }} 个 run</span>
+      <div>
+        <h1>同步记录</h1>
+        <p class="muted">每次 eto 同步的执行记录；点开一行可以查看原始接口响应。</p>
+      </div>
+      <span class="count-pill">{{ total }} 次</span>
     </div>
 
     <div class="filters">
@@ -135,6 +133,7 @@ function statusSeverity(value: string): string {
         :options="platformOptions"
         option-label="label"
         option-value="value"
+        placeholder="全部平台"
         size="small"
         aria-label="平台过滤"
         @update:model-value="changeFilter('platform', $event)"
@@ -144,6 +143,7 @@ function statusSeverity(value: string): string {
         :options="statusOptions"
         option-label="label"
         option-value="value"
+        placeholder="全部状态"
         size="small"
         aria-label="状态过滤"
         @update:model-value="changeFilter('status', $event)"
@@ -152,57 +152,120 @@ function statusSeverity(value: string): string {
 
     <p v-if="loadError" class="error">加载失败：{{ loadError }}</p>
 
-    <DataTable
-      :value="runs"
-      :lazy="true"
-      :paginator="true"
-      :rows="limit"
-      :first="offset"
-      :total-records="total"
-      :rows-per-page-options="[25, 50, 100]"
-      :loading="loading"
-      size="small"
-      scrollable
-      @page="changePage"
-      @row-click="openRun"
-    >
-      <Column field="id" header="id" />
-      <Column field="platform" header="platform" />
-      <Column field="operation" header="operation" />
-      <Column field="status" header="status">
-        <template #body="{ data }">
-          <Tag :value="data.status" :severity="statusSeverity(data.status)" />
-        </template>
-      </Column>
-      <Column field="started_at" header="started_at" />
-      <Column field="finished_at" header="finished_at">
-        <template #body="{ data }">
-          {{ data.finished_at ? formatTime(data.finished_at, 'iso') : '—' }}
-        </template>
-      </Column>
-    </DataTable>
+    <div class="table-frame">
+      <DataTable
+        :value="runs"
+        :lazy="true"
+        :paginator="true"
+        :rows="limit"
+        :first="offset"
+        :total-records="total"
+        :rows-per-page-options="[25, 50, 100]"
+        :loading="loading"
+        size="small"
+        scrollable
+        scroll-height="flex"
+        @page="changePage"
+        @row-click="openRun"
+      >
+        <Column field="id" header="批次" />
+        <Column field="platform" header="平台">
+          <template #body="{ data }">{{ platformLabel(data.platform) }}</template>
+        </Column>
+        <Column field="operation" header="操作">
+          <template #body="{ data }">{{ operationLabel(data.operation) }}</template>
+        </Column>
+        <Column field="status" header="状态">
+          <template #body="{ data }">
+            <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
+          </template>
+        </Column>
+        <Column field="started_at" header="开始时间">
+          <template #body="{ data }">{{ formatTime(data.started_at, 'iso') }}</template>
+        </Column>
+        <Column field="finished_at" header="结束时间">
+          <template #body="{ data }">
+            {{ data.finished_at ? formatTime(data.finished_at, 'iso') : '—' }}
+          </template>
+        </Column>
+      </DataTable>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.heading {
+.raw-runs {
+  height: 100%;
+  min-height: 0;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 10px;
+  flex-direction: column;
+}
+
+.heading {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
 .heading h1 {
   margin: 0;
 }
 
+.heading p {
+  margin: 3px 0 0;
+  font-size: 13px;
+}
+
+.count-pill {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .filters {
+  flex: none;
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
 }
 
+.table-frame {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 4px 10px 0;
+  overflow: hidden;
+}
+
+.table-frame :deep(.p-datatable) {
+  height: 100%;
+}
+
+.table-frame :deep(.p-datatable-table-container) {
+  min-height: 0;
+}
+
 :deep(tbody tr) {
   cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .raw-runs {
+    height: auto;
+    min-height: 60vh;
+  }
+
+  .table-frame {
+    min-height: 60vh;
+  }
 }
 </style>
