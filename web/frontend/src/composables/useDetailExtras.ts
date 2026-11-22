@@ -225,8 +225,11 @@ export function useDetailExtras(
   }
 
   async function load(currentRow: Record<string, unknown>) {
-    const sequence = ++extrasSequence
+    // reset() also invalidates any in-flight extras; reuse its sequence instead
+    // of incrementing again, otherwise every loader sees a stale sequence and
+    // never clears its loading flag.
     reset()
+    const sequence = extrasSequence
     await Promise.allSettled([
       loadLookup(currentRow, sequence),
       loadSources(currentRow, sequence),
