@@ -24,7 +24,7 @@ src/
 └── views/          首页看板、列表、详情、raw run/response 页面
 ```
 
-列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复。字段名和取值通过 `config/columns.ts` 中文化，详情布局在 `config/details.ts`，由 `DetailView` 按平台渲染正文、封面、播放器、互动数和关联记录。HTML/Markdown 一律经 DOMPurify 清洗。
+列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复。字段名和取值通过 `config/columns.ts` 中文化，行 ID 不进入列表但主键仍用于详情跳转；关联表通过 `config/tables.ts` 的 `relation` 配置批量补全目标标题、作者和发布时间。详情布局在 `config/details.ts`，由 `DetailView` 按平台渲染正文、封面、播放器、互动数和关联记录。HTML/Markdown 一律经 DOMPurify 清洗。
 
 ## 依赖与版本策略
 

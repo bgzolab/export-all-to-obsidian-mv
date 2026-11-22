@@ -111,14 +111,21 @@ function metaText(spec: string | DetailFieldSpec): string {
   return fieldText(spec)
 }
 
-const metaItems = computed(() =>
-  (config.value?.meta ?? [])
+const metaItems = computed(() => {
+  const specs: Array<string | DetailFieldSpec> = [...(config.value?.meta ?? [])]
+  const hasSyncColumn = table.value?.columns.some((column) => column.name === 'db_updated_at')
+  const hasSyncSpec = specs.some((spec) => {
+    const name = typeof spec === 'string' ? spec.split('.', 1)[0] : spec.column
+    return name === 'db_updated_at'
+  })
+  if (hasSyncColumn && !hasSyncSpec) specs.push('db_updated_at')
+  return specs
     .map((spec) => ({
       label: detailFieldLabel(tableName.value, spec),
       value: metaText(spec),
     }))
-    .filter((item) => item.value),
-)
+    .filter((item) => item.value)
+})
 
 const stats = computed(() => {
   const items: Array<{ label: string; value: string }> = []

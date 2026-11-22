@@ -7,6 +7,7 @@ import {
   hiddenColumnsFor,
   listColumnsFor,
   tableLabel,
+  tableRelation,
   titleColumnFor,
 } from './tables'
 
@@ -52,13 +53,37 @@ describe('table display config', () => {
     expect(listColumnsFor(zhihu)).not.toContain('removed_column')
   })
 
-  it('falls back for unknown tables without large or JSON columns', () => {
+  it('falls back for unknown tables without ids, large or JSON columns', () => {
     const columns = defaultListColumns(table())
-    expect(columns).toContain('id')
+    expect(columns).not.toContain('id')
     expect(columns).toContain('title')
+    expect(columns).toContain('created_at')
     expect(columns).not.toContain('body')
     expect(columns).not.toContain('payload_json')
     expect(listColumnsFor(table())).toEqual(columns)
+  })
+
+  it('keeps ids out of configured list columns', () => {
+    const zhihu = table({
+      name: 'zhihu_content',
+      primary_key: ['content_id'],
+      columns: [
+        { name: 'content_id', type: 'TEXT', json: false, pk: 1 },
+        { name: 'title', type: 'TEXT', json: false },
+        { name: 'created_time', type: 'INTEGER', json: false },
+        { name: 'db_updated_at', type: 'TEXT', json: false },
+      ],
+    })
+    expect(listColumnsFor(zhihu)).not.toContain('content_id')
+    expect(listColumnsFor(zhihu)).toContain('created_time')
+    expect(listColumnsFor(zhihu)).toContain('db_updated_at')
+  })
+
+  it('declares a readable relation for join tables', () => {
+    const relation = tableRelation('twitter_like')
+    expect(relation?.table).toBe('twitter_tweet')
+    expect(relation?.label).toBe('推文')
+    expect(relation?.timeColumn).toBe('created_at')
   })
 
   it('exposes configured hidden columns', () => {

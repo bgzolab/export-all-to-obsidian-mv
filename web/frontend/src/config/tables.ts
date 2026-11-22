@@ -2,7 +2,28 @@ import type { SortSpec, TableMeta } from '@/api/types'
 import type { RenderKind } from '@/utils/renderers'
 import type { TimeUnit } from '@/utils/time'
 
+import { isIdColumn } from './columns'
+import type { DetailFieldSpec } from './details-types'
+
 export { platformLabel } from './platforms'
+
+export interface RelationConfig {
+  /** Foreign key on the source table. */
+  localColumn: string
+  table: string
+  /** Target column used for the `in` lookup; it does not have to be a PK. */
+  targetColumn: string
+  /** Column header in the list. */
+  label: string
+  /** Display title; the first non-empty candidate wins. */
+  titles: Array<string | DetailFieldSpec>
+  subtitle?: string | DetailFieldSpec
+  timeColumn?: string
+  timeLabel?: string
+  /** Fall back to the source row when the target entity is not projected. */
+  fallbackTitles?: Array<string | DetailFieldSpec>
+  fallbackSubtitle?: string | DetailFieldSpec
+}
 
 interface TableConfig {
   label: string
@@ -12,6 +33,8 @@ interface TableConfig {
   defaultSort?: SortSpec
   /** Noisy or large columns omitted from the list column picker. */
   hiddenColumns?: string[]
+  /** Join-like tables show the target entity instead of a bare foreign key. */
+  relation?: RelationConfig
 }
 
 /**
@@ -23,100 +46,155 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
   bangumi_collection: {
     label: 'Bangumi 收藏',
     titleColumn: 'subject_id',
-    listColumns: ['subject_id', 'collection_id', 'updated_at', 'type', 'rate', 'ep_status', 'comment'],
+    listColumns: ['updated_at', 'type', 'rate', 'ep_status', 'comment', 'db_updated_at'],
     defaultSort: { column: 'updated_at', dir: 'desc' },
+    relation: {
+      localColumn: 'subject_id',
+      table: 'bangumi_subject',
+      targetColumn: 'subject_id',
+      label: '条目',
+      titles: ['name_cn', 'name'],
+      timeColumn: 'date',
+      timeLabel: '发售日期',
+    },
   },
   bangumi_subject: {
     label: 'Bangumi 条目',
     titleColumn: 'name',
-    listColumns: ['subject_id', 'name', 'name_cn', 'date', 'platform', 'total_episodes', 'eps'],
-    defaultSort: { column: 'subject_id', dir: 'desc' },
+    listColumns: ['name', 'name_cn', 'date', 'platform', 'total_episodes', 'eps', 'db_updated_at'],
+    defaultSort: { column: 'date', dir: 'desc' },
     hiddenColumns: ['summary', 'images_json', 'infobox_json', 'characters_json'],
   },
   bilibili_fav: {
     label: '哔哩哔哩收藏夹',
     titleColumn: 'title',
-    listColumns: ['fav_id', 'title', 'media_count', 'ctime', 'mtime'],
+    listColumns: ['title', 'media_count', 'ctime', 'mtime', 'db_updated_at'],
     defaultSort: { column: 'ctime', dir: 'desc' },
     hiddenColumns: ['upper_json', 'cnt_info_json'],
   },
   bilibili_fav_item: {
     label: '哔哩哔哩收藏项',
-    listColumns: ['fav_id', 'media_id', 'fav_time'],
+    listColumns: ['fav_time', 'db_updated_at'],
     defaultSort: { column: 'fav_time', dir: 'desc' },
+    relation: {
+      localColumn: 'media_id',
+      table: 'bilibili_media',
+      targetColumn: 'media_id',
+      label: '视频',
+      titles: ['title'],
+      subtitle: { column: 'upper_json', path: ['name'] },
+      timeColumn: 'pubtime',
+    },
   },
   bilibili_media: {
     label: '哔哩哔哩媒体',
     titleColumn: 'title',
-    listColumns: ['media_id', 'title', 'type', 'duration', 'pubtime', 'bvid', 'link'],
+    listColumns: ['title', 'type', 'duration', 'pubtime', 'bvid', 'db_updated_at'],
     defaultSort: { column: 'pubtime', dir: 'desc' },
     hiddenColumns: ['intro', 'ugc_json', 'season_json', 'ogv_json', 'cnt_info_json'],
   },
   cnblog_bookmark: {
     label: '博客园收藏',
     titleColumn: 'title',
-    listColumns: ['wz_link_id', 'title', 'date_added', 'from_cnblogs', 'link_url'],
+    listColumns: ['title', 'date_added', 'from_cnblogs', 'link_url', 'db_updated_at'],
     defaultSort: { column: 'date_added', dir: 'desc' },
     hiddenColumns: ['summary', 'tags_json'],
   },
   cnblog_post: {
     label: '博客园文章',
     titleColumn: 'source_url',
-    listColumns: ['post_id', 'source_url'],
-    defaultSort: { column: 'post_id', dir: 'desc' },
+    listColumns: ['db_updated_at'],
+    defaultSort: { column: 'db_updated_at', dir: 'desc' },
     hiddenColumns: ['body'],
+    relation: {
+      localColumn: 'source_url',
+      table: 'cnblog_bookmark',
+      targetColumn: 'link_url',
+      label: '文章',
+      titles: ['title'],
+      timeColumn: 'date_added',
+      timeLabel: '收藏时间',
+    },
   },
   github_star: {
     label: 'GitHub Star',
     titleColumn: 'full_name',
     listColumns: [
-      'repo_id',
       'full_name',
       'language',
       'stargazers_count',
       'forks_count',
+      'created_at',
       'starred_at',
-      'html_url',
+      'db_updated_at',
     ],
     defaultSort: { column: 'starred_at', dir: 'desc' },
     hiddenColumns: ['readme', 'description', 'topics_json'],
   },
   netease_play_record: {
     label: '网易云播放记录',
-    listColumns: ['song_id', 'play_time', 'resource_type', 'banned'],
+    listColumns: ['play_time', 'resource_type', 'banned', 'db_updated_at'],
     defaultSort: { column: 'play_time', dir: 'desc' },
     hiddenColumns: ['device_json', 'song_json'],
+    relation: {
+      localColumn: 'song_id',
+      table: 'netease_song',
+      targetColumn: 'song_id',
+      label: '歌曲',
+      titles: ['name'],
+      subtitle: { column: 'artists_json', path: [0, 'name'] },
+      timeColumn: 'publish_time',
+      fallbackTitles: [{ column: 'song_json', path: ['name'] }],
+      fallbackSubtitle: { column: 'song_json', path: ['ar', 0, 'name'] },
+    },
   },
   netease_playlist: {
     label: '网易云歌单',
     titleColumn: 'name',
-    listColumns: ['playlist_id', 'name', 'track_count', 'play_count', 'create_time', 'update_time'],
+    listColumns: ['name', 'track_count', 'play_count', 'create_time', 'update_time', 'db_updated_at'],
     defaultSort: { column: 'update_time', dir: 'desc' },
     hiddenColumns: ['description', 'creator_json', 'tags_json'],
   },
   netease_playlist_song: {
     label: '网易云歌单曲目',
-    listColumns: ['playlist_id', 'song_id', 'position'],
+    listColumns: ['position', 'db_updated_at'],
     defaultSort: { column: 'position', dir: 'asc' },
+    relation: {
+      localColumn: 'song_id',
+      table: 'netease_song',
+      targetColumn: 'song_id',
+      label: '歌曲',
+      titles: ['name'],
+      subtitle: { column: 'artists_json', path: [0, 'name'] },
+      timeColumn: 'publish_time',
+    },
   },
   netease_song: {
     label: '网易云歌曲',
     titleColumn: 'name',
-    listColumns: ['song_id', 'name', 'duration', 'publish_time', 'fee', 'mv'],
+    listColumns: ['name', 'duration', 'publish_time', 'fee', 'db_updated_at'],
     defaultSort: { column: 'publish_time', dir: 'desc' },
     hiddenColumns: ['artists_json', 'album_json', 'alias_json', 'trans_names_json'],
   },
   qireader_article: {
-    label: '起点文章',
+    label: '文章正文',
     titleColumn: 'url',
-    listColumns: ['url', 'response_id'],
-    defaultSort: { column: 'response_id', dir: 'desc' },
+    listColumns: ['db_updated_at'],
+    defaultSort: { column: 'db_updated_at', dir: 'desc' },
     hiddenColumns: ['content'],
+    relation: {
+      localColumn: 'url',
+      table: 'qireader_entry',
+      targetColumn: 'url',
+      label: '文章',
+      titles: ['title'],
+      timeColumn: 'published_at',
+    },
   },
   qireader_entry: {
-    label: '起点条目',
+    label: '稍后读',
     titleColumn: 'title',
-    listColumns: ['entry_id', 'title', 'is_saved', 'published_at', 'url'],
+    listColumns: ['title', 'is_saved', 'published_at', 'crawled_at', 'db_updated_at', 'url'],
     defaultSort: { column: 'published_at', dir: 'desc' },
     hiddenColumns: ['summary', 'origin_json', 'attachments_json', 'tag_ids_json'],
   },
@@ -132,84 +210,120 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
   },
   twitter_bookmark: {
     label: 'Twitter 书签',
-    listColumns: ['tweet_id', 'response_id', 'db_updated_at'],
-    defaultSort: { column: 'tweet_id', dir: 'desc' },
+    listColumns: ['db_updated_at'],
+    defaultSort: { column: 'db_updated_at', dir: 'desc' },
+    relation: {
+      localColumn: 'tweet_id',
+      table: 'twitter_tweet',
+      targetColumn: 'tweet_id',
+      label: '推文',
+      titles: ['full_text'],
+      subtitle: { column: 'author_json', path: ['name'] },
+      timeColumn: 'created_at',
+    },
   },
   twitter_like: {
     label: 'Twitter 喜欢',
-    listColumns: ['tweet_id', 'response_id', 'db_updated_at'],
-    defaultSort: { column: 'tweet_id', dir: 'desc' },
+    listColumns: ['db_updated_at'],
+    defaultSort: { column: 'db_updated_at', dir: 'desc' },
+    relation: {
+      localColumn: 'tweet_id',
+      table: 'twitter_tweet',
+      targetColumn: 'tweet_id',
+      label: '推文',
+      titles: ['full_text'],
+      subtitle: { column: 'author_json', path: ['name'] },
+      timeColumn: 'created_at',
+    },
   },
   twitter_tweet: {
     label: 'Twitter 推文',
     listColumns: [
-      'tweet_id',
       'created_at',
       'full_text',
       'favorite_count',
       'retweet_count',
       'reply_count',
       'view_count',
+      'db_updated_at',
     ],
-    defaultSort: { column: 'tweet_id', dir: 'desc' },
+    defaultSort: { column: 'created_at', dir: 'desc' },
     hiddenColumns: ['author_json'],
   },
   v2ex_favorite: {
     label: 'V2EX 收藏',
-    listColumns: ['topic_id', 'response_id', 'db_updated_at'],
-    defaultSort: { column: 'topic_id', dir: 'desc' },
+    listColumns: ['db_updated_at'],
+    defaultSort: { column: 'db_updated_at', dir: 'desc' },
+    relation: {
+      localColumn: 'topic_id',
+      table: 'v2ex_topic',
+      targetColumn: 'topic_id',
+      label: '主题',
+      titles: ['title'],
+      subtitle: { column: 'member_json', path: ['username'] },
+      timeColumn: 'created',
+    },
   },
   v2ex_reply: {
     label: 'V2EX 回复',
-    listColumns: ['reply_id', 'topic_id', 'content', 'thanks', 'created'],
+    listColumns: ['content', 'thanks', 'created', 'db_updated_at'],
     defaultSort: { column: 'created', dir: 'desc' },
     hiddenColumns: ['content_rendered', 'member_json'],
   },
   v2ex_thanks: {
     label: 'V2EX 感谢',
     titleColumn: 'topic_title',
-    listColumns: ['topic_id', 'thanked_at', 'member', 'amount', 'content_kind', 'topic_title'],
+    listColumns: ['topic_title', 'thanked_at', 'member', 'amount', 'content_kind', 'db_updated_at'],
     defaultSort: { column: 'thanked_at', dir: 'desc' },
     hiddenColumns: ['description'],
   },
   v2ex_topic: {
     label: 'V2EX 主题',
     titleColumn: 'title',
-    listColumns: ['topic_id', 'title', 'replies', 'created', 'last_modified'],
+    listColumns: ['title', 'replies', 'created', 'last_touched', 'db_updated_at'],
     defaultSort: { column: 'last_touched', dir: 'desc' },
     hiddenColumns: ['content', 'member_json', 'node_json', 'supplements_json'],
   },
   weibo_post: {
     label: '微博',
     listColumns: [
-      'post_id',
       'created_at',
       'text',
       'reposts_count',
       'comments_count',
       'attitudes_count',
       'pic_num',
+      'db_updated_at',
     ],
     defaultSort: { column: 'created_at', dir: 'desc' },
     hiddenColumns: ['text_raw', 'long_text', 'user_json', 'pic_infos_json', 'source'],
   },
   zhihu_collection_item: {
     label: '知乎收藏项',
-    listColumns: ['collection_id', 'content_id', 'created'],
+    listColumns: ['created', 'db_updated_at'],
     defaultSort: { column: 'created', dir: 'desc' },
+    relation: {
+      localColumn: 'content_id',
+      table: 'zhihu_content',
+      targetColumn: 'content_id',
+      label: '内容',
+      titles: ['title'],
+      subtitle: { column: 'author_json', path: ['name'] },
+      timeColumn: 'created_time',
+    },
   },
   zhihu_content: {
     label: '知乎内容',
     titleColumn: 'title',
     listColumns: [
-      'content_id',
       'title',
       'type',
       'voteup_count',
       'comment_count',
-      'updated_time',
+      'created_time',
+      'db_updated_at',
     ],
-    defaultSort: { column: 'updated_time', dir: 'desc' },
+    defaultSort: { column: 'created_time', dir: 'desc' },
     hiddenColumns: ['body_html', 'content_json', 'author_json', 'question_json'],
   },
 }
@@ -345,6 +459,10 @@ export function hiddenColumnsFor(table: string): Set<string> {
   return new Set(TABLE_CONFIGS[table]?.hiddenColumns ?? [])
 }
 
+export function tableRelation(table: string): RelationConfig | undefined {
+  return TABLE_CONFIGS[table]?.relation
+}
+
 /** Configured list columns filtered against the live schema, with fallback. */
 export function listColumnsFor(table: TableMeta): string[] {
   const available = new Set(
@@ -401,6 +519,7 @@ const TIME_UNIT_OVERRIDES: Record<string, Record<string, TimeUnit>> = {
   bilibili_fav_item: { fav_time: 'epoch_s' },
   bilibili_media: { ctime: 'epoch_s', pubtime: 'epoch_s' },
   bangumi_collection: { updated_at: 'iso' },
+  bangumi_subject: { date: 'raw' },
   cnblog_bookmark: { date_added: 'iso' },
   github_star: {
     created_at: 'iso',
@@ -434,9 +553,9 @@ export function timeUnitOverride(table: string, column: string): TimeUnit | unde
   return TIME_UNIT_OVERRIDES[table]?.[column]
 }
 
-// Fallback list columns for tables without explicit config yet. The primary key
-// comes first, then scalar columns; bodies, HTML and JSON stay out of the list
-// request so one page never transfers megabytes.
+// Fallback list columns for tables without explicit config yet. IDs stay out
+// of the visible list (the primary key is still requested for row navigation);
+// bodies, HTML and JSON stay out so one page never transfers megabytes.
 const LARGE_COLUMNS = new Set([
   'body',
   'body_html',
@@ -456,11 +575,7 @@ export function defaultListColumns(table: {
   const visible = table.columns.filter(
     (column) => !column.hidden && !column.json && !LARGE_COLUMNS.has(column.name),
   )
-  const primary = table.primary_key.filter((name) =>
-    visible.some((column) => column.name === name),
-  )
-  const rest = visible
-    .filter((column) => !primary.includes(column.name))
-    .slice(0, Math.max(0, 6 - primary.length))
-  return [...primary, ...rest.map((column) => column.name)]
+  const withoutIds = visible.filter((column) => !isIdColumn(column.name))
+  const candidates = withoutIds.length ? withoutIds : visible
+  return candidates.slice(0, 6).map((column) => column.name)
 }

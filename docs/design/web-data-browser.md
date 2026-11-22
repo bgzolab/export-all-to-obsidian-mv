@@ -197,6 +197,8 @@ web/
   - `/raw/runs/:id`：该 run 的 response 列表。
   - `/raw/responses/:id`：response 详情。
 - 字段可读性由 `src/config/columns.ts` 统一处理：列名中文标签、平台特定取值字典（如知乎 `answer` → 回答、Bangumi 收藏类型）、布尔/时长/时间/ID 的格式化。未知列回退到原始列名。
+- 投影表列表默认隐藏行 ID、`response_id` 和 `db_created_at`；主键仍随查询请求，用于行点击进入详情。列表时间列按平台覆盖：发布时间（`created_at` / `published_at` / `pubtime` / `publish_time`）、收藏时间（`date_added` / `starred_at` / `fav_time` / Bangumi `updated_at` / 知乎收藏项 `created`）、同步时间（`db_updated_at`）。
+- 关联表（`twitter_like`、`twitter_bookmark`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`、`netease_play_record`、`cnblog_post`、`qireader_article`）在 `config/tables.ts` 声明 `relation`，每页用一次 `IN` 查询批量取目标记录，列表显示目标标题、作者和发布时间，而不是裸外键。目标行缺失时优先回退到源行内嵌快照（如网易云 `song_json`），再显示“关联记录缺失”。
 - 详情布局由 `src/config/details.ts` 按表声明标题、副标题、封面、正文、互动数、元信息、外链、播放器、关联记录和预览目标：
   - 文章/主题/推文：标题、作者、时间、互动数、清洗后的正文。
   - 视频：封面、UP 主、播放/收藏/弹幕数、Bilibili iframe 播放器、简介。

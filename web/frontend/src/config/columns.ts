@@ -46,8 +46,8 @@ const COLUMN_LABELS: Record<string, string> = {
   ctime: '创建时间',
   date: '日期',
   date_added: '收藏时间',
-  db_created_at: '入库时间',
-  db_updated_at: '更新时间',
+  db_created_at: '首次同步',
+  db_updated_at: '同步时间',
   description: '简介',
   detail_response_id: '详情响应',
   detail_track_count: '详情曲目数',
@@ -119,6 +119,7 @@ const COLUMN_LABELS: Record<string, string> = {
   pic_ids_json: '图片 ID',
   pic_infos_json: '图片',
   pic_num: '图片数',
+  platform: '平台',
   play_count: '播放量',
   play_time: '播放时间',
   playlist_id: '歌单 ID',
@@ -214,6 +215,7 @@ const TABLE_COLUMN_LABELS: Record<string, Record<string, string>> = {
     collection_id: '收藏 ID',
     type: '收藏类型',
     subject_type: '条目类型',
+    updated_at: '收藏时间',
   },
   bangumi_subject: {
     date: '发售日期',
@@ -231,6 +233,10 @@ const TABLE_COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   github_star: {
     description: '仓库简介',
+    created_at: '仓库创建时间',
+    updated_at: '仓库更新时间',
+    pushed_at: '最后推送',
+    starred_at: 'Star 时间',
   },
   netease_playlist: {
     name: '歌单名称',
@@ -247,12 +253,14 @@ const TABLE_COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   v2ex_reply: {
     content: '正文',
+    created: '回复时间',
   },
   v2ex_thanks: {
     description: '说明',
   },
   v2ex_topic: {
     content: '正文',
+    created: '发布时间',
   },
   weibo_post: {
     post_id: '微博 ID',
@@ -261,6 +269,11 @@ const TABLE_COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   zhihu_content: {
     type: '内容类型',
+    created_time: '发布时间',
+    updated_time: '内容更新时间',
+  },
+  zhihu_collection_item: {
+    created: '收藏时间',
   },
 }
 

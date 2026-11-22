@@ -17,7 +17,7 @@ import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
 import CellValue from '@/components/CellValue.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import { useSchema } from '@/composables/useSchema'
-import { columnLabel } from '@/config/columns'
+import { columnLabel, isIdColumn } from '@/config/columns'
 import { platformConfigForTable, platformLabel } from '@/config/platforms'
 import {
   defaultSortFor,
@@ -26,8 +26,10 @@ import {
   tableCountUnit,
   tableDescription,
   tableLabel,
+  tableRelation,
 } from '@/config/tables'
 import { formatNumber } from '@/utils/format'
+import { relationDisplay, relationFieldColumn } from '@/utils/relation'
 import { encodePk } from '@/utils/pk'
 
 const route = useRoute()
@@ -41,6 +43,7 @@ const table = computed<TableMeta | undefined>(() =>
 const platform = computed(() =>
   table.value ? platformConfigForTable(table.value.name) : undefined,
 )
+const relation = computed(() => tableRelation(tableName.value))
 
 const siblings = computed(() => {
   if (!table.value) return []
@@ -49,7 +52,15 @@ const siblings = computed(() => {
 
 const visibleColumns = computed<ColumnMeta[]>(() => {
   const hidden = hiddenColumnsFor(tableName.value)
-  return table.value?.columns.filter((column) => !column.hidden && !hidden.has(column.name)) ?? []
+  const compact = table.value?.kind === 'projection'
+  return (
+    table.value?.columns.filter(
+      (column) =>
+        !column.hidden &&
+        !hidden.has(column.name) &&
+        !(compact && (isIdColumn(column.name) || column.name === 'db_created_at')),
+    ) ?? []
+  )
 })
 const columnOptions = computed(() =>
   visibleColumns.value.map((column) => ({
@@ -71,6 +82,8 @@ const filters = ref<FilterSpec[]>([])
 const filtersOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
+const relationRows = ref(new Map<string, Record<string, unknown>>())
+const relationError = ref('')
 
 // Guards against out-of-order responses when the user pages or searches quickly.
 let requestSequence = 0
@@ -86,6 +99,21 @@ const requestColumns = computed(() => {
   const names = [...selectedColumns.value]
   for (const name of table.value?.primary_key ?? []) {
     if (!names.includes(name)) names.push(name)
+  }
+  // The relation column is rendered from a second query; fetch its join key
+  // even though it is not displayed as a normal column.
+  const relationColumn = relation.value?.localColumn
+  if (relationColumn && !names.includes(relationColumn)) names.push(relationColumn)
+  const relationConfig = relation.value
+  if (relationConfig) {
+    const fallbackSpecs = [
+      ...(relationConfig.fallbackTitles ?? []),
+      ...(relationConfig.fallbackSubtitle ? [relationConfig.fallbackSubtitle] : []),
+    ]
+    for (const spec of fallbackSpecs) {
+      const name = relationFieldColumn(spec)
+      if (!names.includes(name)) names.push(name)
+    }
   }
   return names
 })
@@ -194,6 +222,71 @@ function navigate(patch: Record<string, string | undefined>) {
   router.push({ name: 'table', params: { table: tableName.value }, query })
 }
 
+/** Load target rows for join-like tables with one `IN` query per page. */
+async function loadRelation(sourceRows: Array<Record<string, unknown>>, sequence: number) {
+  const config = relation.value
+  relationRows.value = new Map()
+  relationError.value = ''
+  if (!config) return
+
+  const ids = [
+    ...new Set(
+      sourceRows
+        .map((row) => row[config.localColumn])
+        .filter((value) => value !== null && value !== undefined && value !== '')
+        .map((value) => String(value)),
+    ),
+  ]
+  if (!ids.length) return
+
+  const columns = new Set<string>([config.targetColumn])
+  for (const title of config.titles) columns.add(relationFieldColumn(title))
+  if (config.subtitle) columns.add(relationFieldColumn(config.subtitle))
+  if (config.timeColumn) columns.add(config.timeColumn)
+
+  try {
+    const response = await api.queryTable(config.table, {
+      columns: [...columns],
+      filters: [{ column: config.targetColumn, op: 'in', value: ids }],
+      limit: Math.min(200, ids.length),
+    })
+    if (sequence !== requestSequence) return
+    relationRows.value = new Map(
+      response.rows.map((row) => [String(row[config.targetColumn]), row]),
+    )
+  } catch {
+    if (sequence !== requestSequence) return
+    relationError.value = '关联内容加载失败'
+  }
+}
+
+function relationTarget(row: Record<string, unknown>): Record<string, unknown> | undefined {
+  const config = relation.value
+  if (!config) return undefined
+  return relationRows.value.get(String(row[config.localColumn]))
+}
+
+function relationView(row: Record<string, unknown>) {
+  const config = relation.value
+  if (!config) return { title: '', meta: '', hasTarget: false }
+  const targetTable = schema.value?.tables.find((item) => item.name === config.table)
+  return relationDisplay(
+    config,
+    row,
+    relationTarget(row),
+    targetTable,
+    Boolean(relationError.value),
+  )
+}
+
+function relationTitle(row: Record<string, unknown>): string {
+  return relationView(row).title
+}
+
+function relationMeta(row: Record<string, unknown>): string {
+  return relationView(row).meta
+}
+
 async function load() {
   if (!table.value || !selectedColumns.value.length) return
   const sequence = ++requestSequence
@@ -212,11 +305,13 @@ async function load() {
     rows.value = response.rows
     total.value = response.total
     loaded.value = true
+    void loadRelation(response.rows, sequence)
   } catch (caught) {
     if (sequence !== requestSequence) return
     rows.value = []
     total.value = 0
     loaded.value = true
+    relationRows.value = new Map()
     loadError.value = caught instanceof ApiError ? caught.message : String(caught)
   } finally {
     if (sequence === requestSequence) loading.value = false
@@ -328,7 +423,7 @@ function openRow(event: DataTableRowClickEvent) {
       <form class="toolbar" @submit.prevent="submitSearch">
         <InputText
           v-model="searchDraft"
-          placeholder="搜索标题或正文…"
+          placeholder="搜索表格中的文本…"
           size="small"
           aria-label="搜索"
         />
@@ -352,6 +447,7 @@ function openRow(event: DataTableRowClickEvent) {
           @click="filtersOpen = !filtersOpen"
         />
         <MultiSelect
+          v-if="visibleColumns.length > 2"
           :model-value="selectedColumns"
           :options="columnOptions"
           option-label="label"
@@ -395,6 +491,18 @@ function openRow(event: DataTableRowClickEvent) {
           @sort="changeSort"
           @row-click="openRow"
         >
+          <Column v-if="relation" :header="relation.label" :sortable="false">
+            <template #body="{ data }">
+              <div class="relation-cell">
+                <span class="relation-title" :title="relationTitle(data)">
+                  {{ relationTitle(data) }}
+                </span>
+                <span v-if="relationMeta(data)" class="relation-meta">
+                  {{ relationMeta(data) }}
+                </span>
+              </div>
+            </template>
+          </Column>
           <Column
             v-for="column in displayedColumns"
             :key="column.name"
@@ -507,6 +615,29 @@ function openRow(event: DataTableRowClickEvent) {
 
 .toolbar-spacer {
   flex: 1;
+}
+
+.relation-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 460px;
+  min-width: 220px;
+}
+
+.relation-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+}
+
+.relation-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9ca3af;
+  font-size: 11px;
 }
 
 .table-frame {
