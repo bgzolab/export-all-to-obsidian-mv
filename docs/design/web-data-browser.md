@@ -76,10 +76,10 @@ web/
         ├── api/client.ts
         ├── api/types.ts
         ├── views/{Home,Table,Detail,RawRuns,RawRun,RawResponse}View.vue
-        ├── components/{PlatformNav,DataTable,FilterBar,FieldRenderer,JsonTree}.vue
-        ├── composables/useTableQuery.ts
-        ├── config/tables.ts
-        ├── utils/{pk,time,html,renderers}.ts
+        ├── components/{PlatformNav,CellValue,FilterBar,FacetBar,GalleryGrid,FieldRenderer,JsonTree,PreviewCard}.vue
+        ├── composables/{useSchema,useDetailExtras}.ts
+        ├── config/{tables,details,details-types,columns,platforms}.ts
+        ├── utils/{pk,time,html,renderers,format,relation,gallery,extras}.ts
         └── styles/main.css
 ```
 
@@ -191,7 +191,7 @@ web/
 - 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。未填值的过滤条件保留在 UI/URL 中但不发送到 SQLite，避免列表闪成 0 行。
 - 路由：
   - `/` 看板：平台主内容数量、平台分布、最近同步、近期成功率；表目录收进“数据说明”弹窗。
-  - `/t/:table` 列表：同平台表切换、分页、排序、搜索、列选择、过滤条；状态同步到 URL。
+  - `/t/:table` 列表：平台主视图、分页、排序、搜索、列选择、过滤条；Bangumi / Bilibili 支持照片墙 / 表格切换；状态同步到 URL。次要表只从“数据说明”目录进入。
   - `/t/:table/:pk` 详情：`pk` 为 base64url(JSON)，支持复合主键。
   - `/raw`：run 列表。
   - `/raw/runs/:id`：该 run 的 response 列表。
@@ -206,6 +206,10 @@ web/
   - GitHub：仓库名、描述、Stars/Forks/Issues、标签、README（相对图片按 `raw.githubusercontent.com/<repo>/HEAD/` 解析）。
   - 关联表（`twitter_like`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`）：加载目标行并用 `PreviewCard` 展示标题、摘要和互动数，再链接到完整详情。
   - 没有平台配置的表回退到通用字段视图，并默认展开“全部字段（技术视图）”。
+  - `lookup` 合并正文：CNBlog 详情按 `link_url` 取 `cnblog_post.body`，QiReader 详情按 `url` 取 `qireader_article.content`，不再重复展示摘要。
+  - `sources` 来源：Twitter 显示喜欢/书签，V2EX 显示收藏/感谢，知乎显示“知乎收藏夹”和收藏时间。
+  - `children` 子记录：V2EX 主题详情内嵌回复列表，最多 200 条。
+  - `folders` 收藏夹：Bilibili 媒体详情显示全部收藏夹及收藏时间。
 - 详情渲染器（按列名/类型选择，按表配置覆盖）：
   - `text`：普通文本；长文本折叠（正文区域传 `expanded` 关闭折叠）。
   - `html`：`body_html`、`content`、`content_rendered`、`long_text` 等，DOMPurify 后渲染。
@@ -220,6 +224,42 @@ web/
 - 看板使用 CSS 横向条形图展示平台分布，不引入图表库；最近同步直接读取 `/api/runs?limit=200`，成功率按已完成 run 计算。
 - raw 详情：JSON 树/文本、截断提示、复制、下载原始文本。
 - 安全：所有 HTML 经 DOMPurify；`v-html` 只用于清洗后的内容；外链 `rel="noopener noreferrer"`。
+
+### 平台化视图与照片墙（2026-11）
+
+数据库仍按 raw / 投影表组织，但前端不再把同一平台的每张投影表当成并列模块。每个平台只暴露一个主视图；`bangumi_subject`、`bilibili_fav`、`cnblog_post`、`qireader_article`、`twitter_like` / `twitter_bookmark`、`v2ex_favorite` / `v2ex_thanks` / `v2ex_reply`、`zhihu_collection_item` 等次要表收进“数据说明”的表目录，只在排查时进入。
+
+| 平台 | 主视图 | 列表形态 | 详情合并 |
+| --- | --- | --- | --- |
+| Bangumi | `bangumi_collection` | 照片墙（默认）/ 表格 | 条目快照 + 收藏状态、评分、收藏时间 |
+| 哔哩哔哩 | `bilibili_media` | 照片墙（默认）/ 表格 | 收藏时间 + 全部收藏夹 |
+| 博客园 | `cnblog_bookmark` | 表格 | 按 `link_url` 取 `cnblog_post.body` |
+| QiReader | `qireader_entry` | 表格 | 按 `url` 取 `qireader_article.content` |
+| Twitter / X | `twitter_tweet` | 表格 | 来源：`twitter_like` / `twitter_bookmark` |
+| V2EX | `v2ex_topic` | 表格 | 来源：`v2ex_favorite` / `v2ex_thanks`；内嵌 `v2ex_reply` |
+| 知乎 | `zhihu_content` | 表格 | 来源：`zhihu_collection_item` |
+
+- 平台导航和首页卡片只指向主视图；`/t/:table` 仍可打开任意表，`/t/:table/:pk` 的详情 URL 不变。
+- Bangumi 顶部两组单选 facet：
+  - 收藏状态：全部 / 想看 / 在看 / 看过 / 搁置 / 抛弃。
+  - 条目类型：全部 / 书籍 / 动画 / 音乐 / 游戏 / 三次元。
+  - 当前 facet 的计数按另一组 facet 的当前选择计算；选中项写入现有 `filters` URL 状态，过滤抽屉仍可看到同一条件。
+- 照片墙由 `config/tables.ts` 的 `layout: 'gallery'` 和 `gallery` 配置驱动；`?view=table` 切回表格，默认照片墙。卡片显示封面、标题、副标题、状态/类型/评分等 badge、收藏/发布时间；封面失败显示占位块。Bangumi 表格模式增加虚拟“条目”列，Bilibili 表格模式增加虚拟“收藏夹”列，虚拟列不进入列选择器且不可排序。
+- Bilibili 收藏夹通过 `bilibili_fav_item`（`media_id` / `fav_id` / `fav_time`）和 `bilibili_fav`（`fav_id` / `title`）两次批量查询补全；照片墙卡片和详情都显示全部收藏夹与收藏时间。
+- 详情合并由 `config/details.ts` 的三个新配置驱动：
+  - `lookup`：按源行 URL 查目标表一行，取第一个非空正文列；CNBlog / QiReader 不再显示摘要，正文为空或缺失时显示明确提示，并保留原站链接。
+  - `sources`：按主键查询来源表，按表分组显示“喜欢 / 书签 / 收藏 / 感谢 / 知乎收藏夹”和最近时间；同一来源多行显示数量。
+  - `children`：V2EX 主题详情内嵌回复，按时间升序，最多 200 条，并显示实际总数。
+- 搜索使用新增的 `search_columns` 请求字段：Bangumi 显式传 `['subject_json', 'comment']`，从而支持按条目名搜索；不传时保持原来的“非 JSON 文本列”行为，避免默认搜索命中 JSON 键名。
+- 深色模式：自定义 UI 的颜色统一走 `styles/main.css` 的语义变量；`@media (prefers-color-scheme: dark)` 与 OpenVue Aura 默认的 `system` 深色选择器对齐，页面背景、面板、表格、输入框和照片墙同时切换。未增加手动主题切换，跟随操作系统。
+
+### CNBlog 正文缺口排查（2026-11）
+
+- `cnblog_post` 当前 153 行，其中 20 行 `body` 为空；另有 5 条收藏在 `cnblog_post` 里找不到对应记录。
+- 空正文对应的 raw 响应都是 HTTP 200 + 0 字节，线上复测仍返回空，不是 zlib 解压或 HTML 解析丢了内容。
+- 有正文的 post id 从 16,640,095 起，空正文的 post id 最大 15,708,682；缺口集中在旧文章，边界与 CNBlogs 的文章 ID/发布时间相关。
+- 结论：CNBlogs `api/blogposts/{id}/body` 对旧文章返回 200 空 body。本分支不修，详情页显示“正文抓取为空”并保留原文链接。
+- 后续修复方向：空 body 时回退抓取文章 HTML，或把空 body 视为失败、不写 `cnblog_post` 并在下次同步重试。
 
 ### 未来扩展边界
 
@@ -251,6 +291,12 @@ web/
 - **DEC-008**：OpenVue 1.1.1 — PrimeVue 5.x 改为 PrimeUI License（非 MIT，需要 license key 和年度续期），与公开 AGPL 仓库分发不兼容；PrimeVue 4.5.5 已进入 security-only。OpenVue 是 4.5.5 的 MIT fork，API 兼容，DataTable 覆盖服务端分页/排序/过滤/冻结列。代价是项目年轻（2026-07 创建，当前 1.1.1），锁精确版本；若维护停滞，回退 PrimeVue 4.5.5 或换 Element Plus。
 - **DEC-009**：生产单进程托管 `dist` — 局域网单用户最省部署；开发用 Vite proxy，不需要 CORS 通配。
 - **DEC-010**：raw body 按需解压，2MB 截断 — 避免一次返回巨大响应；截断状态在 API 和 UI 明示。
+- **DEC-011**：前端按“平台主实体”组织，后端继续用通用表 API — 10 个平台只有 7 个需要合并展示，且合并主要发生在详情；为每个平台写 join API 会重复 SQL 和测试，前端批量查询已够用。只有 Bangumi 标题搜索需要新增 `search_columns`。
+- **DEC-012**：照片墙是 `TableView` 的一种布局，不新建路由 — 复用现有 URL 状态、分页、搜索和过滤；`view` 查询参数保存照片墙/表格选择。
+- **DEC-013**：`search_columns` 显式指定搜索列，不让所有 JSON 列默认参与搜索 — `subject_json` 里含 `"name"` 等键名，默认搜索会命中整表；显式配置更可预测。
+- **DEC-014**：详情合并用客户端 `lookup` / `sources` / `children` 批量查询，不新增后端 join 端点 — 详情一次只打开一条记录，额外 1-3 个查询；保持通用 API 的简单性和可复用性。
+- **DEC-015**：CNBlog 空正文不在本分支修复 — 已确认是上游 `blogposts/{id}/body` 对旧文章返回 HTTP 200 + 空 body；本次只在 UI 显示“正文抓取为空”，修复留给独立分支。
+- **DEC-016**：深色模式跟随系统，不新增手动切换 — OpenVue Aura 默认使用 `prefers-color-scheme: dark`，自定义 UI 用同一媒体查询和语义色变量即可对齐；手动切换需要额外的持久化和首屏防闪逻辑，等用户明确需要再做。
 
 ## 备选方案
 
@@ -262,6 +308,8 @@ web/
 - **ALT-006**：`eto serve` 子命令 — 对用户更方便，但把 web 依赖带进主包；独立目录更干净。以后需要再包一层。
 - **ALT-007**：Element Plus — MIT、最新、中文资料最多；DataTable 能力弱于 OpenVue，服务端分页/排序/过滤要自己接，故未选。
 - **ALT-008**：PrimeVue 5.x — 组件最完整，但 PrimeUI License 需要 license key/年度续期，与公开 AGPL 分发冲突，未选。
+- **ALT-009**：为每个平台新增 SQL join 视图/端点 — 列表筛选和排序更强，但需要 7 套 SQL、主键声明和测试；本次只有 Bangumi 搜索必须后端参与，先用 `search_columns` 解决。
+- **ALT-010**：新增 `/p/:platform` 路由 — 语义更清楚，但会让现有 `/t/:table`、详情 URL、书签和导航全部迁移；主表已经能表达平台主视图，保持 URL 稳定。
 
 ## 风险与限制
 
@@ -276,6 +324,13 @@ web/
 - **RISK-009**：前端构建引入 Node 工具链；现有 CI 只有 Ruff/pytest，不覆盖前端。v1 用本地 `typecheck` + `build` + 手工冒烟，CI 集成另立任务。
 - **RISK-010**：offset 分页在深页会变慢；当前数据量小，后续可改 cursor。
 - **RISK-011**：Bilibili/网易云播放器与外链封面依赖第三方页面可用性和防盗链策略；加载失败时保留标题、封面回退或原站链接，不影响文字数据。
+- **RISK-012**：照片墙一次加载 50 张远程封面，慢网下首屏变慢；图片使用 `loading="lazy"`，失败显示占位块，必要时再下调分页大小。
+- **RISK-013**：Bangumi facet 每次加载额外发约 11 个 `COUNT(*)` 请求；当前 1,092 行、本地 SQLite 下可接受，数据量上来再合并成后端 group-by 接口。
+- **RISK-014**：Bilibili 收藏夹补全每页多 2 个批量查询；当前 611 个媒体、1 个收藏夹，开销可忽略。
+- **RISK-015**：V2EX 详情一次取最多 200 条回复，长主题页面较长且响应较大；已限制上限并显示总数。
+- **RISK-016**：CNBlog 旧文章正文为空，详情只能显示提示和原文链接；修复需要 exporter 侧 HTML fallback 或把空 body 视为失败重试。
+- **RISK-017**：`subject_json` 搜索按 JSON 文本匹配，可能命中字段名；Bangumi 搜索词通常是标题/短评，影响可接受。
+- **RISK-018**：抓取正文可能自带内联颜色或白底图片；深色模式下正文外框是深色，但内容内部的作者自定义颜色不受控制。未强制覆盖内联样式，避免破坏原排版。
 
 ## 验证方式
 
@@ -286,3 +341,7 @@ web/
 - **TEST-005**：并发：`eto --db-only zhihu` 运行时浏览 zhihu 数据不报错。
 - **TEST-006**：性能：当前 297MB 库上列表查询 p95 < 100ms；2MB raw 详情 < 500ms。
 - **TEST-007**：展示层冒烟：首页看板与“数据说明”、字段中文标签、全高列表、空过滤条件不触发 0 行、详情正文/视频/音乐/关联预览、raw 页面标签与滚动。
+- **TEST-008**：后端 `search_columns` 覆盖指定 JSON 列、未知列、空搜索和默认搜索行为。
+- **TEST-009**：前端配置测试覆盖主表、照片墙、facet、虚拟列、收藏夹和详情 `lookup` / `sources` / `children`；工具函数测试覆盖图片 URL、来源分组和收藏夹合并。
+- **TEST-010**：Playwright 冒烟覆盖 Bangumi / Bilibili 照片墙与表格切换、Bangumi facet、CNBlog / QiReader 正文、Twitter / V2EX / 知乎来源、V2EX 回复。
+- **TEST-011**：Playwright 分别在 `colorScheme: dark` 和 `colorScheme: light` 下检查首页、表格、照片墙、详情和 raw 页面，确认页面/表格/文字对比度正常。

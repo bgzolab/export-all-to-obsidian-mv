@@ -182,7 +182,7 @@ function openResponse(event: DataTableRowClickEvent) {
   flex: none;
   display: inline-block;
   margin-bottom: 12px;
-  color: #4338ca;
+  color: var(--primary);
   text-decoration: none;
   font-size: 13px;
 }
@@ -209,7 +209,7 @@ function openResponse(event: DataTableRowClickEvent) {
 }
 
 .summary dt {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .summary dd {
@@ -226,8 +226,8 @@ h2 {
 .table-frame {
   flex: 1;
   min-height: 240px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 4px 10px 0;
   overflow: hidden;

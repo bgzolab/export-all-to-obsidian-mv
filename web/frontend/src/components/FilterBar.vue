@@ -191,8 +191,8 @@ function removeFilter(index: number) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 10px;
 }
 
@@ -206,11 +206,12 @@ function removeFilter(index: number) {
 .value-input {
   min-width: 200px;
   padding: 6px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font: inherit;
   font-size: 13px;
-  background: #ffffff;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .filter-actions {
@@ -220,7 +221,7 @@ function removeFilter(index: number) {
 }
 
 .hint {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 </style>

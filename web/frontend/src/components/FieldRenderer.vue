@@ -125,11 +125,12 @@ const booleanValue = computed(() => Boolean(props.value))
 
 <style scoped>
 .empty {
-  color: #9ca3af;
+  color: var(--muted-light);
 }
 
 .rich {
   max-width: 900px;
+  color: var(--text);
   line-height: 1.6;
   font-size: 14px;
   overflow-wrap: anywhere;
@@ -141,7 +142,7 @@ const booleanValue = computed(() => Boolean(props.value))
 }
 
 .rich :deep(a) {
-  color: #3730a3;
+  color: var(--primary-text);
 }
 
 .field-image {
@@ -162,17 +163,17 @@ const booleanValue = computed(() => Boolean(props.value))
 }
 
 .response-link {
-  color: #3730a3;
+  color: var(--primary-text);
 }
 
 .external {
-  color: #3730a3;
+  color: var(--primary-text);
   overflow-wrap: anywhere;
 }
 
 .long-text summary {
   cursor: pointer;
-  color: #3730a3;
+  color: var(--primary-text);
   font-size: 13px;
 }
 

@@ -4,11 +4,17 @@ import type { TableMeta } from '@/api/types'
 
 import {
   defaultListColumns,
+  facetsFor,
+  foldersFor,
+  galleryFor,
   hiddenColumnsFor,
   listColumnsFor,
+  searchColumnsFor,
   tableLabel,
+  tableLayout,
   tableRelation,
   titleColumnFor,
+  virtualColumnsFor,
 } from './tables'
 
 function table(overrides: Partial<TableMeta> = {}): TableMeta {
@@ -89,5 +95,35 @@ describe('table display config', () => {
   it('exposes configured hidden columns', () => {
     expect(hiddenColumnsFor('zhihu_content').has('body_html')).toBe(true)
     expect(hiddenColumnsFor('future_table').size).toBe(0)
+  })
+
+  it('uses a gallery for Bangumi and Bilibili only', () => {
+    expect(tableLayout('bangumi_collection')).toBe('gallery')
+    expect(tableLayout('bilibili_media')).toBe('gallery')
+    expect(tableLayout('zhihu_content')).toBe('table')
+    expect(galleryFor('bangumi_collection')?.title).toContain('subject_json.name_cn')
+    expect(galleryFor('bilibili_media')?.folders).toBe(true)
+  })
+
+  it('declares Bangumi facets and JSON search columns', () => {
+    expect(facetsFor('bangumi_collection').map((facet) => facet.column)).toEqual([
+      'type',
+      'subject_type',
+    ])
+    expect(facetsFor('bangumi_collection')[0]?.options[0]).toEqual({
+      value: 1,
+      label: '想看',
+    })
+    expect(searchColumnsFor('bangumi_collection')).toEqual(['subject_json', 'comment'])
+    expect(searchColumnsFor('zhihu_content')).toBeUndefined()
+  })
+
+  it('declares virtual columns and Bilibili folder joins', () => {
+    expect(virtualColumnsFor('bangumi_collection')[0]?.name).toBe('subject_title')
+    expect(virtualColumnsFor('bilibili_media')[0]?.kind).toBe('folders')
+    const folders = foldersFor('bilibili_media')
+    expect(folders?.linkTable).toBe('bilibili_fav_item')
+    expect(folders?.folderTable).toBe('bilibili_fav')
+    expect(folders?.linkTimeColumn).toBe('fav_time')
   })
 })

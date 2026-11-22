@@ -69,7 +69,7 @@ const rawCount = computed(
 
 .nav-caption {
   margin: 0 6px 6px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -97,38 +97,38 @@ a {
   padding: 7px 8px;
   border-radius: 7px;
   text-decoration: none;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 a:hover {
-  background: #f3f4f6;
+  background: var(--surface-hover);
 }
 
 a.active,
 a.router-link-active {
-  background: #eef2ff;
-  color: #3730a3;
+  background: var(--primary-soft);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
 .count {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
 .active .count,
 .router-link-active .count {
-  color: #6366f1;
+  color: var(--primary-strong);
 }
 
 .raw-link {
-  color: #4b5563;
+  color: var(--text-tertiary);
 }
 
 .nav-placeholder {
   padding: 6px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 </style>

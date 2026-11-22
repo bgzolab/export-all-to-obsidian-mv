@@ -1,5 +1,6 @@
 import { columnLabel } from './columns'
 import type { DetailConfig, DetailFieldSpec } from './details-types'
+import { BILIBILI_FOLDERS } from './tables'
 
 export type { DetailConfig, DetailFieldSpec } from './details-types'
 
@@ -65,12 +66,20 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
     meta: ['duration', 'pubtime', 'bvid', 'type'],
     url: { column: 'bvid', template: 'https://www.bilibili.com/video/{value}' },
     embed: 'bilibili',
+    folders: BILIBILI_FOLDERS,
   },
   cnblog_bookmark: {
     title: ['title'],
-    content: ['summary'],
     meta: ['date_added', 'from_cnblogs', 'tags_json'],
     url: 'link_url',
+    lookup: {
+      table: 'cnblog_post',
+      column: 'link_url',
+      targetColumn: 'source_url',
+      label: '文章正文',
+      fields: ['body'],
+      emptyText: '正文抓取为空。该文章可能发布于旧接口不返回正文的时期。',
+    },
   },
   cnblog_post: {
     title: ['source_url'],
@@ -136,10 +145,16 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
   },
   qireader_entry: {
     title: ['title'],
-    content: ['summary'],
     meta: ['published_at', 'is_saved'],
     url: 'url',
-    preview: { table: 'qireader_article', column: 'url', targetColumn: 'url' },
+    lookup: {
+      table: 'qireader_article',
+      column: 'url',
+      targetColumn: 'url',
+      label: '文章正文',
+      fields: ['content'],
+      emptyText: '正文尚未抓取。',
+    },
   },
   twitter_bookmark: {
     heading: '收藏的推文',
@@ -158,6 +173,22 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
     stats: ['favorite_count', 'retweet_count', 'reply_count', 'view_count'],
     meta: ['created_at'],
     url: { column: 'tweet_id', template: 'https://x.com/i/web/status/{value}' },
+    sources: [
+      {
+        table: 'twitter_like',
+        column: 'tweet_id',
+        label: '喜欢',
+        timeColumn: 'db_updated_at',
+        timeLabel: '同步',
+      },
+      {
+        table: 'twitter_bookmark',
+        column: 'tweet_id',
+        label: '书签',
+        timeColumn: 'db_updated_at',
+        timeLabel: '同步',
+      },
+    ],
   },
   v2ex_favorite: {
     heading: '收藏的主题',
@@ -191,7 +222,33 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
     stats: ['replies'],
     meta: ['created', 'last_touched', 'last_reply_by'],
     url: 'url',
-    related: [{ label: '查看回复', table: 'v2ex_reply', column: 'topic_id' }],
+    sources: [
+      {
+        table: 'v2ex_favorite',
+        column: 'topic_id',
+        label: '收藏',
+        timeColumn: 'db_updated_at',
+        timeLabel: '同步',
+      },
+      {
+        table: 'v2ex_thanks',
+        column: 'topic_id',
+        label: '感谢',
+        timeColumn: 'thanked_at',
+        timeLabel: '最近',
+      },
+    ],
+    children: {
+      table: 'v2ex_reply',
+      column: 'topic_id',
+      label: '回复',
+      sort: { column: 'created', dir: 'asc' },
+      limit: 200,
+      emptyText: '暂无回复。',
+      title: [{ column: 'member_json', path: ['username'] }],
+      content: [['content_rendered', 'content']],
+      meta: ['created', { column: 'thanks', label: '感谢' }],
+    },
   },
   weibo_post: {
     title: [{ column: 'user_json', path: ['screen_name'] }],
@@ -217,6 +274,15 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
     stats: ['voteup_count', 'comment_count'],
     meta: ['created_time', 'updated_time'],
     url: 'url',
+    sources: [
+      {
+        table: 'zhihu_collection_item',
+        column: 'content_id',
+        label: '知乎收藏夹',
+        timeColumn: 'created',
+        timeLabel: '收藏',
+      },
+    ],
   },
 }
 

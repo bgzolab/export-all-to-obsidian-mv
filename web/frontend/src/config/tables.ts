@@ -3,9 +3,10 @@ import type { RenderKind } from '@/utils/renderers'
 import type { TimeUnit } from '@/utils/time'
 
 import { isIdColumn } from './columns'
-import type { DetailFieldSpec } from './details-types'
+import type { DetailFieldSpec, FolderSpec } from './details-types'
 
 export { platformLabel } from './platforms'
+export type { FolderSpec } from './details-types'
 
 export interface RelationConfig {
   /** Foreign key on the source table. */
@@ -25,6 +26,45 @@ export interface RelationConfig {
   fallbackSubtitle?: string | DetailFieldSpec
 }
 
+export interface GalleryMeta {
+  spec: string | DetailFieldSpec
+  label: string
+}
+
+export interface GalleryConfig {
+  /** First non-empty cover URL wins. */
+  cover?: Array<string | DetailFieldSpec>
+  title: Array<string | DetailFieldSpec>
+  subtitle?: Array<string | DetailFieldSpec>
+  /** Scalar columns formatted with the table's value dictionaries. */
+  badges?: Array<string | DetailFieldSpec>
+  meta?: GalleryMeta[]
+  /** Render the Bilibili folder join on each card. */
+  folders?: boolean
+  /** Bangumi uses poster covers, Bilibili uses video thumbnails. */
+  aspect?: 'poster' | 'video'
+}
+
+export interface FacetOption {
+  value: string | number
+  label: string
+}
+
+export interface FacetConfig {
+  column: string
+  label: string
+  allLabel?: string
+  options: FacetOption[]
+}
+
+export interface VirtualColumn {
+  name: string
+  label: string
+  /** Text columns use the first non-empty spec. */
+  spec?: Array<string | DetailFieldSpec>
+  kind?: 'text' | 'folders'
+}
+
 interface TableConfig {
   label: string
   /** Preferred human-readable column for headings and page titles. */
@@ -35,6 +75,32 @@ interface TableConfig {
   hiddenColumns?: string[]
   /** Join-like tables show the target entity instead of a bare foreign key. */
   relation?: RelationConfig
+  /** Gallery is the default list layout for visual platforms. */
+  layout?: 'table' | 'gallery'
+  gallery?: GalleryConfig
+  /** Single-select horizontal facets shown above the toolbar. */
+  facets?: FacetConfig[]
+  /** Columns computed from JSON snapshots; never sent to SQLite. */
+  virtualColumns?: VirtualColumn[]
+  /** Many-to-many folder enrichment, currently Bilibili only. */
+  folders?: FolderSpec
+  /** Explicit search columns, needed to include JSON text snapshots. */
+  searchColumns?: string[]
+}
+
+/**
+ * Bilibili media can belong to more than one favorite folder. The join table
+ * carries the favorite time; the folder table carries the display title.
+ */
+export const BILIBILI_FOLDERS: FolderSpec = {
+  linkTable: 'bilibili_fav_item',
+  linkColumn: 'media_id',
+  linkTargetColumn: 'media_id',
+  linkKeyColumn: 'fav_id',
+  linkTimeColumn: 'fav_time',
+  folderTable: 'bilibili_fav',
+  folderKeyColumn: 'fav_id',
+  folderTitle: ['title'],
 }
 
 /**
@@ -48,15 +114,54 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     titleColumn: 'subject_id',
     listColumns: ['updated_at', 'type', 'rate', 'ep_status', 'comment', 'db_updated_at'],
     defaultSort: { column: 'updated_at', dir: 'desc' },
-    relation: {
-      localColumn: 'subject_id',
-      table: 'bangumi_subject',
-      targetColumn: 'subject_id',
-      label: '条目',
-      titles: ['name_cn', 'name'],
-      timeColumn: 'date',
-      timeLabel: '发售日期',
+    layout: 'gallery',
+    gallery: {
+      cover: [
+        'subject_json.images.common',
+        'subject_json.images.large',
+        'subject_json.images.medium',
+      ],
+      title: ['subject_json.name_cn', 'subject_json.name'],
+      subtitle: ['subject_json.name'],
+      badges: ['type', 'subject_type', 'rate'],
+      meta: [
+        { spec: 'updated_at', label: '收藏' },
+        { spec: 'ep_status', label: '进度' },
+      ],
+      aspect: 'poster',
     },
+    facets: [
+      {
+        column: 'type',
+        label: '收藏状态',
+        options: [
+          { value: 1, label: '想看' },
+          { value: 3, label: '在看' },
+          { value: 2, label: '看过' },
+          { value: 4, label: '搁置' },
+          { value: 5, label: '抛弃' },
+        ],
+      },
+      {
+        column: 'subject_type',
+        label: '类型',
+        options: [
+          { value: 2, label: '动画' },
+          { value: 1, label: '书籍' },
+          { value: 4, label: '游戏' },
+          { value: 3, label: '音乐' },
+          { value: 6, label: '三次元' },
+        ],
+      },
+    ],
+    virtualColumns: [
+      {
+        name: 'subject_title',
+        label: '条目',
+        spec: ['subject_json.name_cn', 'subject_json.name'],
+      },
+    ],
+    searchColumns: ['subject_json', 'comment'],
   },
   bangumi_subject: {
     label: 'Bangumi 条目',
@@ -92,6 +197,21 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     listColumns: ['title', 'type', 'duration', 'pubtime', 'bvid', 'db_updated_at'],
     defaultSort: { column: 'pubtime', dir: 'desc' },
     hiddenColumns: ['intro', 'ugc_json', 'season_json', 'ogv_json', 'cnt_info_json'],
+    layout: 'gallery',
+    gallery: {
+      cover: ['cover'],
+      title: ['title'],
+      subtitle: [{ column: 'upper_json', path: ['name'] }],
+      badges: ['type', 'duration'],
+      meta: [
+        { spec: 'pubtime', label: '发布' },
+        { spec: 'db_updated_at', label: '同步' },
+      ],
+      folders: true,
+      aspect: 'video',
+    },
+    virtualColumns: [{ name: 'folders', label: '收藏夹', kind: 'folders' }],
+    folders: BILIBILI_FOLDERS,
   },
   cnblog_bookmark: {
     label: '博客园收藏',
@@ -334,7 +454,7 @@ export function tableLabel(table: string): string {
 
 const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
   bangumi_collection: {
-    description: '你在 Bangumi 标记的动画、书籍和游戏，包含评分与进度。',
+    description: '你在 Bangumi 标记的动画、书籍和游戏，按收藏状态和类型筛选。',
     countUnit: '条',
   },
   bangumi_subject: {
@@ -350,11 +470,11 @@ const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
     countUnit: '条',
   },
   bilibili_media: {
-    description: '收藏夹里的视频、专栏和番剧资料。',
+    description: '收藏夹里的视频、专栏和番剧，详情显示收藏时间与收藏夹。',
     countUnit: '个',
   },
   cnblog_bookmark: {
-    description: '博客园收藏列表。',
+    description: '收藏的博客文章，详情直接读取已抓取正文。',
     countUnit: '篇',
   },
   cnblog_post: {
@@ -386,7 +506,7 @@ const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
     countUnit: '篇',
   },
   qireader_entry: {
-    description: 'RSS 稍后读条目。',
+    description: '稍后读条目，详情直接显示已抓取正文。',
     countUnit: '条',
   },
   sync_response: {
@@ -406,7 +526,7 @@ const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
     countUnit: '条',
   },
   twitter_tweet: {
-    description: '喜欢或书签涉及的推文正文。',
+    description: '喜欢或书签涉及的推文，详情页显示来源。',
     countUnit: '条',
   },
   v2ex_favorite: {
@@ -422,7 +542,7 @@ const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
     countUnit: '条',
   },
   v2ex_topic: {
-    description: '收藏主题的正文与元数据。',
+    description: '收藏、感谢过的主题，详情页合并回复与来源。',
     countUnit: '个',
   },
   weibo_post: {
@@ -434,7 +554,7 @@ const TABLE_COPY: Record<string, { description: string; countUnit: string }> = {
     countUnit: '条',
   },
   zhihu_content: {
-    description: '收藏的回答、文章和想法正文。',
+    description: '收藏的回答、文章和想法，详情显示收藏来源。',
     countUnit: '条',
   },
 }
@@ -461,6 +581,30 @@ export function hiddenColumnsFor(table: string): Set<string> {
 
 export function tableRelation(table: string): RelationConfig | undefined {
   return TABLE_CONFIGS[table]?.relation
+}
+
+export function tableLayout(table: string): 'table' | 'gallery' {
+  return TABLE_CONFIGS[table]?.layout ?? 'table'
+}
+
+export function galleryFor(table: string): GalleryConfig | undefined {
+  return TABLE_CONFIGS[table]?.gallery
+}
+
+export function facetsFor(table: string): FacetConfig[] {
+  return TABLE_CONFIGS[table]?.facets ?? []
+}
+
+export function virtualColumnsFor(table: string): VirtualColumn[] {
+  return TABLE_CONFIGS[table]?.virtualColumns ?? []
+}
+
+export function foldersFor(table: string): FolderSpec | undefined {
+  return TABLE_CONFIGS[table]?.folders
+}
+
+export function searchColumnsFor(table: string): string[] | undefined {
+  return TABLE_CONFIGS[table]?.searchColumns
 }
 
 /** Configured list columns filtered against the live schema, with fallback. */

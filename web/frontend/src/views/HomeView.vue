@@ -93,7 +93,7 @@ const platformCards = computed<PlatformCard[]>(() => {
         key,
         label: platformLabel(key),
         mark: config?.mark ?? platformLabel(key).slice(0, 1),
-        color: config?.color ?? '#4b5563',
+        color: config?.color ?? 'var(--text-tertiary)',
         description: config?.description ?? '数据库中的记录。',
         primaryTable,
         primary,
@@ -268,7 +268,7 @@ const catalog = computed(() => {
       <header class="section-head">
         <div>
           <h2>平台收藏</h2>
-          <p>点击卡片进入可读列表；高级字段名和表结构收在“数据说明”里。</p>
+          <p>点击卡片进入平台视图；次要表和字段名收在“数据说明”里。</p>
         </div>
       </header>
       <div class="platform-grid">
@@ -313,10 +313,13 @@ const catalog = computed(() => {
       <div class="info-body">
         <p>
           这里是 <strong>eto</strong> 的只读浏览界面。卡片上的数字来自各平台的主内容表：
-          收藏、Star、喜欢、稍后读等；关联表（书签、回复、歌单曲目）作为次要数字展示。
+          收藏、Star、喜欢、稍后读等；关联表（书签、回复、收藏关系）折叠进详情，
+          表目录里仍可单独排查。
         </p>
         <p>
-          详情页会按平台重新排版：文章显示正文，视频显示播放器，音乐显示封面和播放器，外链可以跳回原站。
+          详情页会按平台重新排版：文章显示正文，视频显示播放器，音乐显示封面和播放器，
+          外链可以跳回原站。Bangumi 和 Bilibili 默认照片墙；博客园与 QiReader 直接显示抓取正文，
+          Twitter、V2EX、知乎在详情页展示来源，V2EX 主题内嵌回复。
           raw 层保留每次同步的接口响应，只在排查数据问题时使用。
         </p>
         <dl v-if="health" class="storage-facts">
@@ -354,7 +357,7 @@ const catalog = computed(() => {
 
 .hero-lede {
   max-width: 680px;
-  color: #4b5563;
+  color: var(--text-tertiary);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -366,7 +369,7 @@ const catalog = computed(() => {
 }
 
 .ghost-link {
-  color: #4338ca;
+  color: var(--primary);
   font-size: 13px;
   text-decoration: none;
 }
@@ -390,7 +393,7 @@ const catalog = computed(() => {
 }
 
 .stat-label {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -408,7 +411,7 @@ const catalog = computed(() => {
 }
 
 .stat-hint {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
@@ -416,7 +419,7 @@ const catalog = computed(() => {
   height: 5px;
   margin: 2px 0 1px;
   border-radius: 999px;
-  background: #f1f3f5;
+  background: var(--surface-hover);
   overflow: hidden;
 }
 
@@ -424,7 +427,7 @@ const catalog = computed(() => {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #34d399, #16a34a);
+  background: linear-gradient(90deg, var(--success-bright), var(--success));
 }
 
 .small-error {
@@ -453,18 +456,18 @@ const catalog = computed(() => {
 .panel-head p,
 .section-head p {
   margin: 3px 0 0;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
 .panel-total {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .panel-link {
-  color: #4338ca;
+  color: var(--primary);
   font-size: 12px;
   text-decoration: none;
   white-space: nowrap;
@@ -489,7 +492,7 @@ const catalog = computed(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #374151;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -503,7 +506,7 @@ const catalog = computed(() => {
 .bar-track {
   height: 7px;
   border-radius: 999px;
-  background: #f1f3f5;
+  background: var(--surface-hover);
   overflow: hidden;
 }
 
@@ -515,7 +518,7 @@ const catalog = computed(() => {
 
 .bar-value {
   text-align: right;
-  color: #6b7280;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -534,7 +537,7 @@ const catalog = computed(() => {
 }
 
 .run-row:hover {
-  background: #f8fafc;
+  background: var(--surface-muted);
 }
 
 .run-main {
@@ -546,7 +549,7 @@ const catalog = computed(() => {
 }
 
 .run-main span {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
@@ -617,7 +620,7 @@ const catalog = computed(() => {
 
 .platform-copy p {
   margin: 0;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -636,7 +639,7 @@ const catalog = computed(() => {
 }
 
 .platform-count span {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
@@ -649,13 +652,13 @@ const catalog = computed(() => {
 .platform-extra span {
   padding: 3px 7px;
   border-radius: 6px;
-  background: #f8fafc;
-  color: #6b7280;
+  background: var(--surface-muted);
+  color: var(--muted);
   font-size: 11px;
 }
 
 .platform-extra b {
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -666,7 +669,7 @@ const catalog = computed(() => {
   gap: 8px;
   margin-top: auto;
   padding-top: 4px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 11px;
 }
 
@@ -674,30 +677,30 @@ const catalog = computed(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #9ca3af;
+  background: var(--muted-light);
 }
 
 .status-dot.success {
-  background: #16a34a;
+  background: var(--success);
 }
 
 .status-dot.partial {
-  background: #f59e0b;
+  background: var(--warning);
 }
 
 .status-dot.failed {
-  background: #dc2626;
+  background: var(--danger-strong);
 }
 
 .status-dot.running {
-  background: #2563eb;
+  background: var(--info);
 }
 
 .info-body {
   max-height: 68vh;
   overflow-y: auto;
   padding-right: 4px;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -712,13 +715,13 @@ const catalog = computed(() => {
   gap: 4px 14px;
   margin: 14px 0 18px;
   padding: 10px 12px;
-  background: #f8fafc;
+  background: var(--surface-muted);
   border-radius: 8px;
   font-size: 12px;
 }
 
 .storage-facts dt {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .storage-facts dd {
@@ -739,7 +742,7 @@ const catalog = computed(() => {
 
 .catalog h4 {
   margin: 0 0 4px;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -759,7 +762,7 @@ const catalog = computed(() => {
 }
 
 .catalog a {
-  color: #4338ca;
+  color: var(--primary);
   text-decoration: none;
 }
 
@@ -768,7 +771,7 @@ const catalog = computed(() => {
 }
 
 .catalog li span {
-  color: #9ca3af;
+  color: var(--muted-light);
   font-variant-numeric: tabular-nums;
 }
 

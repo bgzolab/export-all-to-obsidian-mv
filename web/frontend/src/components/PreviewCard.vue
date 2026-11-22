@@ -134,8 +134,8 @@ const fallbackFields = computed(() =>
   display: flex;
   gap: 16px;
   padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 10px;
 }
 
@@ -145,7 +145,7 @@ const fallbackFields = computed(() =>
   align-self: flex-start;
   border-radius: 8px;
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--border);
 }
 
 .preview-cover img {
@@ -160,7 +160,7 @@ const fallbackFields = computed(() =>
 
 .preview-kicker {
   margin: 0 0 4px;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -174,13 +174,13 @@ h3 {
 
 .preview-subtitle {
   margin: 4px 0 0;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .preview-excerpt {
   margin: 8px 0 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.65;
   white-space: pre-wrap;
@@ -195,7 +195,7 @@ h3 {
 }
 
 .preview-fields dt {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .preview-fields dd {
@@ -208,19 +208,19 @@ h3 {
   flex-wrap: wrap;
   gap: 14px;
   margin-top: 10px;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
 }
 
 .preview-stats strong {
-  color: #111827;
+  color: var(--text);
   font-size: 14px;
 }
 
 .preview-link {
   display: inline-block;
   margin-top: 10px;
-  color: #4338ca;
+  color: var(--primary);
   font-size: 13px;
   text-decoration: none;
 }

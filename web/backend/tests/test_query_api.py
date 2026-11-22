@@ -58,6 +58,20 @@ def test_query_decodes_json_columns(client, seeded):
     assert authors['3'] == '{bad json'
 
 
+def test_query_search_columns_can_target_json(client, seeded):
+    response = client.post(
+        '/api/tables/zhihu_content/query',
+        json={
+            'columns': ['content_id'],
+            'search': 'name',
+            'search_columns': ['author_json'],
+            'sort': [{'column': 'content_id'}],
+        },
+    )
+    assert response.status_code == 200
+    assert [row['content_id'] for row in response.json()['rows']] == ['1']
+
+
 def test_query_clamps_limit_to_200(client, seeded):
     response = client.post('/api/tables/zhihu_content/query', json={'limit': 999})
     assert response.status_code == 200

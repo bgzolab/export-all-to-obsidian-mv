@@ -78,6 +78,29 @@ def test_search_ignores_json_columns(connection, seeded):
     assert _query(connection, QueryRequest(search='name')) == []
 
 
+def test_search_columns_can_include_json_text(connection, seeded):
+    assert _query(
+        connection,
+        QueryRequest(search='name', search_columns=['author_json']),
+    ) == ['1', '4']
+
+
+def test_search_columns_keep_default_json_exclusion_when_omitted(connection, seeded):
+    assert _query(connection, QueryRequest(search='beta')) == ['2']
+
+
+def test_search_columns_reject_unknown_or_non_text(connection, seeded):
+    for columns, detail in (
+        (['nope'], 'unknown column'),
+        (['voteup_count'], 'not searchable'),
+        ([], 'must not be empty'),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            _query(connection, QueryRequest(search='x', search_columns=columns))
+        assert excinfo.value.status_code == 400
+        assert detail in excinfo.value.detail
+
+
 def test_sort_appends_primary_key(connection, seeded):
     sql, _, _ = build_select(
         find_table(connection, 'bilibili_fav_item'),

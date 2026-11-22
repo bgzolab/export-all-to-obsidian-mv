@@ -7,12 +7,12 @@ import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, TableMeta } from '@/api/types'
 import FieldRenderer from '@/components/FieldRenderer.vue'
 import PreviewCard from '@/components/PreviewCard.vue'
+import { useDetailExtras } from '@/composables/useDetailExtras'
 import { useSchema } from '@/composables/useSchema'
 import { columnLabel } from '@/config/columns'
 import {
   detailConfigFor,
   detailFieldLabel,
-  detailFieldPrefix,
   detailFieldValue,
   detailUrl,
   firstDetailValue,
@@ -20,7 +20,8 @@ import {
 import type { DetailFieldSpec } from '@/config/details'
 import { platformLabel } from '@/config/platforms'
 import { tableLabel, titleColumnFor } from '@/config/tables'
-import { formatCellValue, formatCompact } from '@/utils/format'
+import { specTextFor } from '@/utils/extras'
+import { formatCompact, formatNumber } from '@/utils/format'
 import { decodePk, encodePk } from '@/utils/pk'
 
 const route = useRoute()
@@ -34,6 +35,22 @@ const table = computed<TableMeta | undefined>(() =>
   schema.value?.tables.find((item) => item.name === tableName.value),
 )
 const config = computed(() => detailConfigFor(tableName.value))
+
+const {
+  lookupConfig,
+  lookupValue,
+  lookupColumn,
+  lookupLoading,
+  sourceItems,
+  folderItems,
+  childrenConfig,
+  childrenTotal,
+  childrenLoading,
+  childrenError,
+  childViews,
+  reset: resetExtras,
+  load: loadExtras,
+} = useDetailExtras(config, schema)
 
 const row = ref<Record<string, unknown> | null>(null)
 const previewRow = ref<Record<string, unknown> | null>(null)
@@ -63,21 +80,8 @@ const kicker = computed(() => {
 })
 
 function fieldText(spec: string | DetailFieldSpec): string {
-  const current = table.value
-  if (!current || !row.value) return ''
-  const value = detailFieldValue(row.value, spec)
-  if (value === undefined || value === null || value === '') return ''
-  const columnName = typeof spec === 'string' ? spec.split('.', 1)[0] : spec.column
-  const column = current.columns.find((item) => item.name === columnName)
-  // A path read from a JSON column is already a scalar; passing it through
-  // formatCellValue would label it "JSON" because the source column is JSON.
-  const derived = typeof spec !== 'string' ? Boolean(spec.path?.length) : spec.includes('.')
-  const text = derived
-    ? String(value)
-    : column
-      ? formatCellValue(current.name, column, value)
-      : String(value)
-  return `${detailFieldPrefix(spec)}${text}`
+  if (!table.value || !row.value) return ''
+  return specTextFor(table.value, row.value, spec)
 }
 
 const subtitle = computed(() => {
@@ -283,6 +287,7 @@ async function load() {
   if (!decodedPk.value) {
     loadError.value = '主键参数无效'
     row.value = null
+    resetExtras()
     return
   }
   const sequence = ++requestSequence
@@ -291,14 +296,17 @@ async function load() {
   loadError.value = ''
   row.value = null
   previewRow.value = null
+  resetExtras()
   try {
     const response = await api.getRow(tableName.value, decodedPk.value)
     if (sequence !== requestSequence) return
     row.value = response.row
     void loadPreview(response.row)
+    void loadExtras(response.row)
   } catch (caught) {
     if (sequence !== requestSequence) return
     row.value = null
+    resetExtras()
     if (caught instanceof ApiError && caught.status === 404) {
       notFound.value = true
     } else {
@@ -376,6 +384,33 @@ function goBack() {
         <PreviewCard v-else-if="previewRow" :table="previewTable" :row="previewRow" />
       </div>
 
+      <div v-if="sourceItems.length || folderItems.length" class="extras-section">
+        <div v-if="sourceItems.length" class="extras-row">
+          <span class="section-label">来源</span>
+          <div class="chip-row">
+            <span v-for="source in sourceItems" :key="source.label" class="source-chip">
+              {{ source.label }}<em v-if="source.count > 1"> ×{{ source.count }}</em>
+              <span v-if="source.time" class="source-time">
+                {{ source.timeLabel }} {{ source.time }}
+              </span>
+            </span>
+          </div>
+        </div>
+        <div v-if="folderItems.length" class="extras-row">
+          <span class="section-label">收藏夹</span>
+          <div class="chip-row">
+            <span
+              v-for="folder in folderItems"
+              :key="`${folder.folder}-${folder.time}`"
+              class="source-chip"
+            >
+              {{ folder.folder }}
+              <span v-if="folder.time" class="source-time">收藏 {{ folder.time }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div v-if="embedUrl" class="embed-section">
         <iframe
           v-if="config?.embed === 'bilibili'"
@@ -398,6 +433,19 @@ function goBack() {
         />
       </div>
 
+      <div v-if="lookupConfig" class="content-section">
+        <p class="section-label">{{ lookupConfig.label }}</p>
+        <p v-if="lookupLoading" class="muted">正在读取正文…</p>
+        <FieldRenderer
+          v-else-if="lookupValue !== undefined && lookupColumn"
+          :table="lookupConfig.table"
+          :column="lookupColumn"
+          :value="lookupValue"
+          expanded
+        />
+        <p v-else class="content-empty">{{ lookupConfig.emptyText }}</p>
+      </div>
+
       <div v-if="contentItems.length" class="content-section">
         <section
           v-for="item in contentItems"
@@ -414,6 +462,44 @@ function goBack() {
           />
         </section>
       </div>
+
+      <section v-if="childrenConfig" class="children-section">
+        <header class="children-head">
+          <p class="section-label">{{ childrenConfig.label }}</p>
+          <span v-if="childrenTotal" class="children-count">
+            {{ formatNumber(childrenTotal) }} 条
+          </span>
+        </header>
+        <p v-if="childrenLoading" class="muted">正在读取{{ childrenConfig.label }}…</p>
+        <p v-else-if="childrenError" class="error">读取失败：{{ childrenError }}</p>
+        <p v-else-if="!childViews.length" class="muted">
+          {{ childrenConfig.emptyText ?? '暂无记录。' }}
+        </p>
+        <div v-else class="child-list">
+          <article v-for="view in childViews" :key="view.key" class="child-row">
+            <header class="child-head">
+              <strong class="child-title">{{ view.title }}</strong>
+              <span v-if="view.meta" class="child-meta">{{ view.meta }}</span>
+            </header>
+            <div
+              v-if="view.contentValue !== undefined && view.contentValue !== ''"
+              class="child-content"
+            >
+              <FieldRenderer
+                v-if="view.contentColumn"
+                :table="childrenConfig.table"
+                :column="view.contentColumn"
+                :value="view.contentValue"
+                expanded
+              />
+              <span v-else>{{ view.contentValue }}</span>
+            </div>
+          </article>
+        </div>
+        <p v-if="childrenTotal > childViews.length" class="muted children-more">
+          已显示前 {{ childViews.length }} 条，共 {{ formatNumber(childrenTotal) }} 条。
+        </p>
+      </section>
 
       <div v-if="relatedLinks.length" class="related-links">
         <RouterLink
@@ -458,7 +544,7 @@ function goBack() {
   padding: 0;
   border: 0;
   background: none;
-  color: #4338ca;
+  color: var(--primary);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -476,7 +562,7 @@ function goBack() {
   display: flex;
   gap: 26px;
   padding: 26px 28px;
-  border-bottom: 1px solid #eef0f3;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .hero-cover {
@@ -485,7 +571,7 @@ function goBack() {
   align-self: flex-start;
   border-radius: 10px;
   overflow: hidden;
-  background: #eef0f3;
+  background: var(--surface-sunken);
 }
 
 .hero-cover img {
@@ -507,7 +593,7 @@ function goBack() {
 
 .hero-subtitle {
   margin: 7px 0 0;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -517,7 +603,7 @@ function goBack() {
   flex-wrap: wrap;
   gap: 20px;
   margin-top: 16px;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -528,7 +614,7 @@ function goBack() {
 }
 
 .hero-stats strong {
-  color: #111827;
+  color: var(--text);
   font-size: 19px;
   font-variant-numeric: tabular-nums;
 }
@@ -543,21 +629,21 @@ function goBack() {
 .hero-meta span {
   padding: 4px 8px;
   border-radius: 6px;
-  background: #f8fafc;
-  color: #4b5563;
+  background: var(--surface-muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
 .hero-meta b {
   margin-right: 4px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-weight: 500;
 }
 
 .external-link {
   display: inline-block;
   margin-top: 16px;
-  color: #4338ca;
+  color: var(--primary);
   font-size: 13px;
   text-decoration: none;
 }
@@ -570,9 +656,127 @@ function goBack() {
   padding: 18px 28px 0;
 }
 
+.extras-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 18px 28px 0;
+}
+
+.extras-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.extras-row .section-label {
+  flex: none;
+  margin: 4px 0 0;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-size: 12px;
+}
+
+.source-chip em {
+  color: var(--primary-strong);
+  font-style: normal;
+}
+
+.source-time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.content-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.children-section {
+  padding: 0 28px 22px;
+}
+
+.children-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.children-head .section-label {
+  margin: 0;
+}
+
+.children-count {
+  color: var(--muted-light);
+  font-size: 11px;
+}
+
+.child-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.child-row {
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.child-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.child-title {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.child-meta {
+  color: var(--muted-light);
+  font-size: 11px;
+}
+
+.child-content {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.child-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.children-more {
+  margin: 10px 0 0;
+}
+
 .section-label {
   margin: 0 0 8px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -628,26 +832,26 @@ function goBack() {
 
 .related-link {
   padding: 6px 11px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: #4338ca;
+  color: var(--primary);
   font-size: 12px;
   text-decoration: none;
 }
 
 .related-link:hover {
-  background: #eef2ff;
+  background: var(--primary-soft);
 }
 
 .all-fields {
   padding: 14px 28px 22px;
-  border-top: 1px solid #eef0f3;
-  background: #fbfcfd;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
 }
 
 .all-fields summary {
   cursor: pointer;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
   user-select: none;
 }
@@ -660,7 +864,7 @@ function goBack() {
 }
 
 .all-fields dt {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -686,8 +890,10 @@ function goBack() {
   }
 
   .preview-section,
+  .extras-section,
   .embed-section,
   .content-section,
+  .children-section,
   .related-links,
   .all-fields {
     padding-left: 18px;

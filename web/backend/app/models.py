@@ -28,6 +28,10 @@ class QueryRequest(BaseModel):
     columns: list[str] | None = None
     filters: list[Filter] = Field(default_factory=list, max_length=50)
     search: str | None = None
+    # Explicit search columns let a table opt into JSON text snapshots (for
+    # example Bangumi `subject_json`) without making every JSON column
+    # searchable by default.
+    search_columns: list[str] | None = Field(default=None, max_length=20)
     sort: list[SortSpec] = Field(default_factory=list, max_length=10)
     # The builder clamps to 200; accepting larger values keeps clients simple.
     limit: int = Field(default=50, ge=1)

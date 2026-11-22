@@ -5,29 +5,42 @@ import Button from 'openvue/button'
 import Column from 'openvue/column'
 import DataTable from 'openvue/datatable'
 import type {
-  DataTablePageEvent,
   DataTableRowClickEvent,
   DataTableSortEvent,
 } from 'openvue/datatable'
 import InputText from 'openvue/inputtext'
 import MultiSelect from 'openvue/multiselect'
+import Paginator from 'openvue/paginator'
 
 import { ApiError, api } from '@/api/client'
 import type { ColumnMeta, FilterSpec, SortSpec, TableMeta } from '@/api/types'
 import CellValue from '@/components/CellValue.vue'
+import FacetBar from '@/components/FacetBar.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import GalleryGrid from '@/components/GalleryGrid.vue'
 import { useSchema } from '@/composables/useSchema'
 import { columnLabel, isIdColumn } from '@/config/columns'
+import { firstDetailValue } from '@/config/details'
+import type { DetailFieldSpec } from '@/config/details'
 import { platformConfigForTable, platformLabel } from '@/config/platforms'
 import {
   defaultSortFor,
+  facetsFor,
+  foldersFor,
+  galleryFor,
   hiddenColumnsFor,
   listColumnsFor,
+  searchColumnsFor,
   tableCountUnit,
   tableDescription,
   tableLabel,
+  tableLayout,
   tableRelation,
+  virtualColumnsFor,
 } from '@/config/tables'
+import type { VirtualColumn } from '@/config/tables'
+import { foldersBySourceKey } from '@/utils/extras'
+import type { FolderEntry } from '@/utils/extras'
 import { formatNumber } from '@/utils/format'
 import { relationDisplay, relationFieldColumn } from '@/utils/relation'
 import { encodePk } from '@/utils/pk'
@@ -44,11 +57,20 @@ const platform = computed(() =>
   table.value ? platformConfigForTable(table.value.name) : undefined,
 )
 const relation = computed(() => tableRelation(tableName.value))
-
-const siblings = computed(() => {
-  if (!table.value) return []
-  return (schema.value?.tables ?? []).filter((item) => item.platform === table.value?.platform)
-})
+const layout = computed(() => tableLayout(tableName.value))
+const galleryConfig = computed(() => galleryFor(tableName.value))
+const facets = computed(() => facetsFor(tableName.value))
+const virtualColumns = computed(() => virtualColumnsFor(tableName.value))
+const leadingVirtualColumns = computed(() =>
+  virtualColumns.value.filter((column) => column.kind !== 'folders'),
+)
+const trailingVirtualColumns = computed(() =>
+  virtualColumns.value.filter((column) => column.kind === 'folders'),
+)
+const folderSpec = computed(() => foldersFor(tableName.value))
+const viewMode = ref<'gallery' | 'table'>('table')
+const folders = ref(new Map<string, FolderEntry[]>())
+const facetCounts = ref(new Map<string, Map<string, number>>())
 
 const visibleColumns = computed<ColumnMeta[]>(() => {
   const hidden = hiddenColumnsFor(tableName.value)
@@ -87,6 +109,7 @@ const relationError = ref('')
 
 // Guards against out-of-order responses when the user pages or searches quickly.
 let requestSequence = 0
+let facetSequence = 0
 
 const displayedColumns = computed<ColumnMeta[]>(() =>
   selectedColumns.value
@@ -97,24 +120,37 @@ const displayedColumns = computed<ColumnMeta[]>(() =>
 // can build the detail URL without a second query.
 const requestColumns = computed(() => {
   const names = [...selectedColumns.value]
-  for (const name of table.value?.primary_key ?? []) {
-    if (!names.includes(name)) names.push(name)
+  const add = (name: string | undefined) => {
+    if (name && !names.includes(name)) names.push(name)
   }
+  const addSpec = (spec: string | DetailFieldSpec) => add(relationFieldColumn(spec))
+  for (const name of table.value?.primary_key ?? []) add(name)
   // The relation column is rendered from a second query; fetch its join key
   // even though it is not displayed as a normal column.
-  const relationColumn = relation.value?.localColumn
-  if (relationColumn && !names.includes(relationColumn)) names.push(relationColumn)
+  add(relation.value?.localColumn)
   const relationConfig = relation.value
   if (relationConfig) {
     const fallbackSpecs = [
       ...(relationConfig.fallbackTitles ?? []),
       ...(relationConfig.fallbackSubtitle ? [relationConfig.fallbackSubtitle] : []),
     ]
-    for (const spec of fallbackSpecs) {
-      const name = relationFieldColumn(spec)
-      if (!names.includes(name)) names.push(name)
+    for (const spec of fallbackSpecs) addSpec(spec)
+  }
+  // Photo-wall cards need columns that are not in the table-mode column picker.
+  const gallery = galleryConfig.value
+  if (gallery && viewMode.value === 'gallery') {
+    for (const spec of gallery.cover ?? []) addSpec(spec)
+    for (const spec of gallery.title) addSpec(spec)
+    for (const spec of gallery.subtitle ?? []) addSpec(spec)
+    for (const spec of gallery.badges ?? []) addSpec(spec)
+    for (const item of gallery.meta ?? []) addSpec(item.spec)
+  }
+  if (viewMode.value === 'table') {
+    for (const column of virtualColumns.value) {
+      for (const spec of column.spec ?? []) addSpec(spec)
     }
   }
+  add(folderSpec.value?.linkColumn)
   return names
 })
 const sortField = computed(() => sortSpecs.value[0]?.column ?? '')
@@ -123,6 +159,11 @@ const sortOrder = computed(() => {
   if (!first) return 0
   return first.dir === 'desc' ? -1 : 1
 })
+const searchPlaceholder = computed(() =>
+  tableName.value === 'bangumi_collection'
+    ? '搜索条目名称或短评…'
+    : '搜索表格中的文本…',
+)
 // A just-added filter row starts empty. Keep it in the URL/UI, but do not send
 // it to SQLite until it has a value; otherwise the list flashes to zero rows.
 const activeFilters = computed(() =>
@@ -196,6 +237,8 @@ function hydrate() {
   offset.value = Math.max(0, readNumber(query.offset, 0))
   search.value = readString(query.q) ?? ''
   searchDraft.value = search.value
+  viewMode.value =
+    layout.value === 'gallery' && readString(query.view) !== 'table' ? 'gallery' : 'table'
 
   const allowed = new Set(visibleColumns.value.map((column) => column.name))
   const fromUrl = (readString(query.cols) ?? '').split(',').filter(Boolean)
@@ -207,7 +250,9 @@ function hydrate() {
   const configuredSort = defaultSortFor(table.value.name)
   sortSpecs.value = parsedSort.length ? parsedSort : configuredSort ? [configuredSort] : []
   filters.value = parseFilters(readString(query.filters))
-  if (filters.value.length) filtersOpen.value = true
+  // Facet selections live in the same filter list; don't pop the drawer open
+  // every time a chip is clicked.
+  if (filters.value.length && !facets.value.length) filtersOpen.value = true
 }
 
 function navigate(patch: Record<string, string | undefined>) {
@@ -287,6 +332,138 @@ function relationMeta(row: Record<string, unknown>): string {
   return relationView(row).meta
 }
 
+/** Enrich the current page with Bilibili favorite folders in two batch queries. */
+async function loadFolders(sourceRows: Array<Record<string, unknown>>, sequence: number) {
+  const spec = folderSpec.value
+  folders.value = new Map()
+  if (!spec) return
+  const keys = [
+    ...new Set(
+      sourceRows
+        .map((row) => row[spec.linkColumn])
+        .filter((value) => value !== null && value !== undefined && value !== '')
+        .map((value) => String(value)),
+    ),
+  ]
+  if (!keys.length) return
+  const linkTable = schema.value?.tables.find((item) => item.name === spec.linkTable)
+  try {
+    const linkColumns = [
+      ...new Set([
+        spec.linkTargetColumn,
+        spec.linkKeyColumn,
+        ...(spec.linkTimeColumn ? [spec.linkTimeColumn] : []),
+      ]),
+    ]
+    const linkResponse = await api.queryTable(spec.linkTable, {
+      columns: linkColumns,
+      filters: [{ column: spec.linkTargetColumn, op: 'in', value: keys }],
+      limit: 200,
+    })
+    if (sequence !== requestSequence) return
+    const folderKeys = [
+      ...new Set(
+        linkResponse.rows
+          .map((row) => row[spec.linkKeyColumn])
+          .filter((value) => value !== null && value !== undefined && value !== '')
+          .map((value) => String(value)),
+      ),
+    ]
+    if (!folderKeys.length) return
+    const folderColumns = [
+      ...new Set([
+        spec.folderKeyColumn,
+        ...spec.folderTitle.map((spec) => relationFieldColumn(spec)),
+      ]),
+    ]
+    const folderResponse = await api.queryTable(spec.folderTable, {
+      columns: folderColumns,
+      filters: [{ column: spec.folderKeyColumn, op: 'in', value: folderKeys }],
+      limit: 200,
+    })
+    if (sequence !== requestSequence) return
+    folders.value = foldersBySourceKey(
+      spec,
+      linkResponse.rows,
+      folderResponse.rows,
+      linkTable,
+    )
+  } catch {
+    if (sequence === requestSequence) folders.value = new Map()
+  }
+}
+
+/** Facet counts include the other facet and the search term. */
+async function loadFacetCounts() {
+  const configs = facets.value
+  const current = table.value
+  if (!configs.length || !current?.primary_key.length) {
+    facetCounts.value = new Map()
+    return
+  }
+  const sequence = ++facetSequence
+  const baseFilters = activeFilters.value
+  const jobs: Array<Promise<{ column: string; key: string; total: number }>> = []
+  for (const facet of configs) {
+    const other = baseFilters.filter((filter) => filter.column !== facet.column)
+    for (const option of [{ value: '', label: '全部' }, ...facet.options]) {
+      const filters =
+        option.value === ''
+          ? other
+          : [...other, { column: facet.column, op: 'eq', value: option.value }]
+      jobs.push(
+        api
+          .queryTable(tableName.value, {
+            columns: current.primary_key,
+            filters,
+            search: search.value || undefined,
+            search_columns: search.value ? searchColumnsFor(tableName.value) : undefined,
+            limit: 1,
+          })
+          .then((response) => ({
+            column: facet.column,
+            key: String(option.value),
+            total: response.total,
+          })),
+      )
+    }
+  }
+  const results = await Promise.allSettled(jobs)
+  if (sequence !== facetSequence) return
+  const next = new Map<string, Map<string, number>>()
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue
+    const { column, key, total } = result.value
+    const bucket = next.get(column) ?? new Map<string, number>()
+    bucket.set(key, total)
+    next.set(column, bucket)
+  }
+  facetCounts.value = next
+}
+
+function selectFacet(column: string, value: string | number | null) {
+  const next = filters.value.filter((item) => item.column !== column)
+  if (value !== null) next.push({ column, op: 'eq', value })
+  changeFilters(next)
+}
+
+function setView(mode: 'gallery' | 'table') {
+  navigate({ view: mode === 'gallery' ? undefined : 'table' })
+}
+
+function virtualValue(column: VirtualColumn, row: Record<string, unknown>): string {
+  const value = firstDetailValue(row, column.spec)
+  return value === undefined || value === null || value === '' ? '—' : String(value)
+}
+
+function folderEntries(row: Record<string, unknown>): FolderEntry[] {
+  const spec = folderSpec.value
+  if (!spec) return []
+  const key = row[spec.linkColumn]
+  if (key === null || key === undefined) return []
+  return folders.value.get(String(key)) ?? []
+}
+
 async function load() {
   if (!table.value || !selectedColumns.value.length) return
   const sequence = ++requestSequence
@@ -297,6 +474,7 @@ async function load() {
       columns: requestColumns.value,
       filters: activeFilters.value,
       search: search.value || undefined,
+      search_columns: search.value ? searchColumnsFor(tableName.value) : undefined,
       sort: sortSpecs.value,
       limit: limit.value,
       offset: offset.value,
@@ -306,12 +484,16 @@ async function load() {
     total.value = response.total
     loaded.value = true
     void loadRelation(response.rows, sequence)
+    void loadFolders(response.rows, sequence)
+    void loadFacetCounts()
   } catch (caught) {
     if (sequence !== requestSequence) return
     rows.value = []
     total.value = 0
     loaded.value = true
     relationRows.value = new Map()
+    folders.value = new Map()
+    facetCounts.value = new Map()
     loadError.value = caught instanceof ApiError ? caught.message : String(caught)
   } finally {
     if (sequence === requestSequence) loading.value = false
@@ -354,7 +536,7 @@ function changeFilters(next: FilterSpec[]) {
   })
 }
 
-function changePage(event: DataTablePageEvent) {
+function changePage(event: { first: number; rows: number }) {
   navigate({ offset: String(event.first), limit: String(event.rows) })
 }
 
@@ -370,11 +552,11 @@ function changeSort(event: DataTableSortEvent) {
   })
 }
 
-function openRow(event: DataTableRowClickEvent) {
+function openRowData(data: Record<string, unknown>) {
   if (!table.value) return
   const pk: Record<string, unknown> = {}
   for (const name of table.value.primary_key) {
-    const value = event.data?.[name]
+    const value = data[name]
     if (value === undefined) return
     pk[name] = value
   }
@@ -382,6 +564,10 @@ function openRow(event: DataTableRowClickEvent) {
     name: 'detail',
     params: { table: tableName.value, pk: encodePk(pk) },
   })
+}
+
+function openRow(event: DataTableRowClickEvent) {
+  if (event.data) openRowData(event.data)
 }
 </script>
 
@@ -408,22 +594,20 @@ function openRow(event: DataTableRowClickEvent) {
             <template v-else>…</template>
           </span>
         </div>
-        <nav v-if="siblings.length > 1" class="table-tabs" aria-label="同平台数据表">
-          <RouterLink
-            v-for="sibling in siblings"
-            :key="sibling.name"
-            :to="`/t/${sibling.name}`"
-            :class="{ active: sibling.name === table.name }"
-          >
-            {{ tableLabel(sibling.name) }}
-          </RouterLink>
-        </nav>
       </header>
+
+      <FacetBar
+        v-if="facets.length"
+        :facets="facets"
+        :filters="filters"
+        :counts="facetCounts"
+        @select="selectFacet"
+      />
 
       <form class="toolbar" @submit.prevent="submitSearch">
         <InputText
           v-model="searchDraft"
-          placeholder="搜索表格中的文本…"
+          :placeholder="searchPlaceholder"
           size="small"
           aria-label="搜索"
         />
@@ -437,6 +621,24 @@ function openRow(event: DataTableRowClickEvent) {
           text
           @click="clearSearch"
         />
+        <span v-if="layout === 'gallery'" class="view-toggle" role="group" aria-label="列表形态">
+          <Button
+            type="button"
+            label="照片墙"
+            size="small"
+            :severity="viewMode === 'gallery' ? 'primary' : 'secondary'"
+            :outlined="viewMode !== 'gallery'"
+            @click="setView('gallery')"
+          />
+          <Button
+            type="button"
+            label="表格"
+            size="small"
+            :severity="viewMode === 'table' ? 'primary' : 'secondary'"
+            :outlined="viewMode !== 'table'"
+            @click="setView('table')"
+          />
+        </span>
         <span class="toolbar-spacer" />
         <Button
           type="button"
@@ -447,7 +649,7 @@ function openRow(event: DataTableRowClickEvent) {
           @click="filtersOpen = !filtersOpen"
         />
         <MultiSelect
-          v-if="visibleColumns.length > 2"
+          v-if="viewMode === 'table' && visibleColumns.length > 2"
           :model-value="selectedColumns"
           :options="columnOptions"
           option-label="label"
@@ -472,7 +674,31 @@ function openRow(event: DataTableRowClickEvent) {
 
       <p v-if="loadError" class="error">查询失败：{{ loadError }}</p>
 
-      <div class="table-frame">
+      <div v-if="viewMode === 'gallery' && galleryConfig" class="gallery-frame">
+        <div class="gallery-scroll">
+          <p v-if="loading && !loaded" class="muted">正在加载…</p>
+          <GalleryGrid
+            v-else
+            :table="table"
+            :rows="rows"
+            :config="galleryConfig"
+            :folders="folders"
+            :folder-spec="folderSpec"
+            @open="openRowData"
+          />
+          <p v-if="loaded && !rows.length" class="empty-message">没有匹配的记录。</p>
+        </div>
+        <Paginator
+          class="gallery-paginator"
+          :first="offset"
+          :rows="limit"
+          :total-records="total"
+          :rows-per-page-options="[25, 50, 100, 200]"
+          @page="changePage"
+        />
+      </div>
+
+      <div v-else class="table-frame">
         <DataTable
           :value="rows"
           :lazy="true"
@@ -504,6 +730,18 @@ function openRow(event: DataTableRowClickEvent) {
             </template>
           </Column>
           <Column
+            v-for="column in leadingVirtualColumns"
+            :key="column.name"
+            :header="column.label"
+            :sortable="false"
+          >
+            <template #body="{ data }">
+              <span class="virtual-text" :title="virtualValue(column, data)">
+                {{ virtualValue(column, data) }}
+              </span>
+            </template>
+          </Column>
+          <Column
             v-for="column in displayedColumns"
             :key="column.name"
             :field="column.name"
@@ -514,6 +752,25 @@ function openRow(event: DataTableRowClickEvent) {
             </template>
             <template #body="{ data }">
               <CellValue :table="table.name" :column="column" :value="data[column.name]" />
+            </template>
+          </Column>
+          <Column
+            v-for="column in trailingVirtualColumns"
+            :key="column.name"
+            :header="column.label"
+            :sortable="false"
+          >
+            <template #body="{ data }">
+              <div v-if="folderEntries(data).length" class="folder-cell">
+                <span
+                  v-for="entry in folderEntries(data)"
+                  :key="`${entry.folder}-${entry.time}`"
+                  class="folder-entry"
+                >
+                  {{ entry.folder }}<em v-if="entry.time"> · {{ entry.time }}</em>
+                </span>
+              </div>
+              <span v-else class="muted">—</span>
             </template>
           </Column>
           <template #empty>
@@ -542,17 +799,17 @@ function openRow(event: DataTableRowClickEvent) {
   display: flex;
   gap: 7px;
   margin: 0 0 6px;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
 .breadcrumb a {
-  color: #6b7280;
+  color: var(--muted);
   text-decoration: none;
 }
 
 .breadcrumb a:hover {
-  color: #4338ca;
+  color: var(--primary);
 }
 
 .title-row {
@@ -564,7 +821,7 @@ function openRow(event: DataTableRowClickEvent) {
 
 .description {
   margin: 2px 0 0;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -572,36 +829,11 @@ function openRow(event: DataTableRowClickEvent) {
   flex: none;
   padding: 5px 10px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--primary-soft);
+  color: var(--primary);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.table-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 12px;
-}
-
-.table-tabs a {
-  padding: 4px 9px;
-  border-radius: 6px;
-  color: #6b7280;
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.table-tabs a:hover {
-  background: #f3f4f6;
-}
-
-.table-tabs a.active {
-  background: #eef2ff;
-  color: #3730a3;
-  font-weight: 600;
 }
 
 .toolbar {
@@ -617,6 +849,64 @@ function openRow(event: DataTableRowClickEvent) {
   flex: 1;
 }
 
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gallery-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gallery-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 0;
+}
+
+.gallery-paginator {
+  flex: none;
+  border-top: 1px solid var(--border-soft);
+  padding: 4px 8px;
+}
+
+.virtual-text {
+  display: inline-block;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: var(--text);
+}
+
+.folder-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+}
+
+.folder-entry {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.folder-entry em {
+  color: var(--muted-light);
+  font-style: normal;
+}
+
 .relation-cell {
   display: flex;
   flex-direction: column;
@@ -629,22 +919,22 @@ function openRow(event: DataTableRowClickEvent) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #111827;
+  color: var(--text);
 }
 
 .relation-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #9ca3af;
+  color: var(--muted-light);
   font-size: 11px;
 }
 
 .table-frame {
   flex: 1;
   min-height: 0;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 4px 10px 0;
   overflow: hidden;
@@ -660,7 +950,7 @@ function openRow(event: DataTableRowClickEvent) {
 
 .empty-message {
   padding: 22px;
-  color: #9ca3af;
+  color: var(--muted-light);
   text-align: center;
 }
 

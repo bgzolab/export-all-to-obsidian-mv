@@ -117,13 +117,20 @@ def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
 
 
 def build_where(
-    meta: dict, filters: list[Filter], search: str | None
+    meta: dict,
+    filters: list[Filter],
+    search: str | None,
+    search_columns: list[str] | None = None,
 ) -> tuple[str, list[Any]]:
     """Build the WHERE body and its parameters.
 
     Search is a case-insensitive `LIKE` over text columns; SQLite's default
     LIKE is already case-insensitive for ASCII. Wildcards typed by the user are
     escaped so the term is always treated as a literal substring.
+
+    `search_columns` is an explicit allowlist for tables that want to search a
+    JSON snapshot such as Bangumi `subject_json`. Without it, JSON columns stay
+    excluded so a term like `name` cannot match every serialized object.
     """
     clauses: list[str] = []
     params: list[Any] = []
@@ -135,11 +142,25 @@ def build_where(
 
     term = (search or '').strip()
     if term:
-        searchable = [
-            column
-            for column in _visible_columns(meta)
-            if 'TEXT' in (column['type'] or '').upper() and not column['json']
-        ]
+        if search_columns is not None:
+            if not search_columns:
+                raise _bad_request('search_columns must not be empty')
+            searchable = []
+            seen: set[str] = set()
+            for name in search_columns:
+                if name in seen:
+                    continue
+                column = _resolve_column(meta, name, role='in search_columns')
+                if 'TEXT' not in (column['type'] or '').upper():
+                    raise _bad_request(f'column is not searchable: {name}')
+                searchable.append(column)
+                seen.add(name)
+        else:
+            searchable = [
+                column
+                for column in _visible_columns(meta)
+                if 'TEXT' in (column['type'] or '').upper() and not column['json']
+            ]
         if not searchable:
             raise _bad_request('table has no searchable text columns')
         pattern = f'%{_escape_like(term)}%'
@@ -200,7 +221,9 @@ def build_select(
 ) -> tuple[str, list[dict], list[Any]]:
     """Return (SQL, selected column metadata, params) for one page."""
     columns = _selected_columns(meta, request.columns)
-    where, params = build_where(meta, request.filters, request.search)
+    where, params = build_where(
+        meta, request.filters, request.search, request.search_columns
+    )
     limit = min(request.limit, MAX_LIMIT)
     sql = (
         f'SELECT {", ".join(quote_identifier(c["name"]) for c in columns)} '
@@ -215,7 +238,9 @@ def build_select(
 
 
 def build_count(meta: dict, request: QueryRequest) -> tuple[str, list[Any]]:
-    where, params = build_where(meta, request.filters, request.search)
+    where, params = build_where(
+        meta, request.filters, request.search, request.search_columns
+    )
     return (
         f'SELECT COUNT(*) FROM {quote_identifier(meta["name"])} WHERE {where}',
         params,

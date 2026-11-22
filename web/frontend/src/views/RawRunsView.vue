@@ -223,8 +223,8 @@ function openRun(event: DataTableRowClickEvent) {
   flex: none;
   padding: 5px 10px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--primary-soft);
+  color: var(--primary);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -239,8 +239,8 @@ function openRun(event: DataTableRowClickEvent) {
 .table-frame {
   flex: 1;
   min-height: 0;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 4px 10px 0;
   overflow: hidden;

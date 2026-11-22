@@ -181,7 +181,7 @@ function downloadBody() {
 .back {
   display: inline-block;
   margin-bottom: 12px;
-  color: #3730a3;
+  color: var(--primary-text);
   text-decoration: none;
   font-size: 13px;
 }
@@ -206,7 +206,7 @@ function downloadBody() {
 }
 
 .meta dt {
-  color: #6b7280;
+  color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -217,10 +217,10 @@ function downloadBody() {
 
 .warning {
   padding: 8px 10px;
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
   border-radius: 4px;
-  color: #92400e;
+  color: var(--warning-text);
   font-size: 13px;
 }
 
@@ -233,10 +233,10 @@ function downloadBody() {
 .body-tree {
   max-height: 70vh;
   overflow: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 8px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .body-text {
@@ -244,8 +244,8 @@ function downloadBody() {
   overflow: auto;
   margin: 0;
   padding: 10px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
   white-space: pre-wrap;
@@ -259,15 +259,15 @@ function downloadBody() {
 
 .request summary {
   cursor: pointer;
-  color: #3730a3;
+  color: var(--primary-text);
 }
 
 .request pre {
   max-height: 240px;
   overflow: auto;
   padding: 8px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
 }

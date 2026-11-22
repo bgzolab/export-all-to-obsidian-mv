@@ -43,6 +43,7 @@ export interface QueryRequest {
   columns?: string[]
   filters?: FilterSpec[]
   search?: string
+  search_columns?: string[]
   sort?: SortSpec[]
   limit?: number
   offset?: number

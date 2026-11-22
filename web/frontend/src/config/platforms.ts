@@ -95,12 +95,12 @@ export const PLATFORMS: PlatformConfig[] = [
     label: 'Twitter / X',
     mark: 'X',
     color: '#0b63b8',
-    description: '喜欢的推文与书签',
-    primaryTable: 'twitter_like',
+    description: '喜欢和书签里的推文',
+    primaryTable: 'twitter_tweet',
     metrics: [
+      { label: '推文', table: 'twitter_tweet', unit: '条' },
       { label: '喜欢', table: 'twitter_like', unit: '条' },
       { label: '书签', table: 'twitter_bookmark', unit: '条' },
-      { label: '推文', table: 'twitter_tweet', unit: '条' },
     ],
   },
   {
@@ -108,12 +108,12 @@ export const PLATFORMS: PlatformConfig[] = [
     label: 'V2EX',
     mark: 'V',
     color: '#52525b',
-    description: '收藏主题、感谢记录与回复',
-    primaryTable: 'v2ex_favorite',
+    description: '收藏、感谢过的主题与回复',
+    primaryTable: 'v2ex_topic',
     metrics: [
-      { label: '收藏主题', table: 'v2ex_favorite', unit: '个' },
-      { label: '感谢记录', table: 'v2ex_thanks', unit: '条' },
-      { label: '回复', table: 'v2ex_reply', unit: '条' },
+      { label: '主题', table: 'v2ex_topic', unit: '个' },
+      { label: '收藏', table: 'v2ex_favorite', unit: '个' },
+      { label: '感谢', table: 'v2ex_thanks', unit: '条' },
     ],
   },
   {
