@@ -13,6 +13,7 @@ import {
   tableLabel,
   tableLayout,
   tableRelation,
+  timeUnitOverride,
   titleColumnFor,
   virtualColumnsFor,
 } from './tables'
@@ -94,7 +95,13 @@ describe('table display config', () => {
 
   it('exposes configured hidden columns', () => {
     expect(hiddenColumnsFor('zhihu_content').has('body_html')).toBe(true)
+    expect(hiddenColumnsFor('qireader_entry').has('is_saved')).toBe(true)
     expect(hiddenColumnsFor('future_table').size).toBe(0)
+  })
+
+  it('renders QiReader epoch timestamps as milliseconds', () => {
+    expect(timeUnitOverride('qireader_entry', 'published_at')).toBe('epoch_ms')
+    expect(timeUnitOverride('qireader_entry', 'crawled_at')).toBe('epoch_ms')
   })
 
   it('uses a gallery for Bangumi and Bilibili only', () => {

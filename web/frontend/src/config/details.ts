@@ -173,6 +173,7 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
     stats: ['favorite_count', 'retweet_count', 'reply_count', 'view_count'],
     meta: ['created_at'],
     url: { column: 'tweet_id', template: 'https://x.com/i/web/status/{value}' },
+    media: 'twitter',
     sources: [
       {
         table: 'twitter_like',
@@ -372,4 +373,3 @@ export function detailFieldLabel(
 export function detailFieldPrefix(spec: string | DetailFieldSpec | undefined): string {
   return typeof spec === 'object' ? (spec.prefix ?? '') : ''
 }
-

@@ -56,6 +56,7 @@ describe('detail config', () => {
       '喜欢',
       '书签',
     ])
+    expect(detailConfigFor('twitter_tweet')?.media).toBe('twitter')
     expect(detailConfigFor('v2ex_topic')?.sources?.map((source) => source.label)).toEqual([
       '收藏',
       '感谢',

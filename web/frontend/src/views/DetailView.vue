@@ -23,6 +23,9 @@ import { tableLabel, titleColumnFor } from '@/config/tables'
 import { specTextFor } from '@/utils/extras'
 import { formatCompact, formatNumber } from '@/utils/format'
 import { decodePk, encodePk } from '@/utils/pk'
+import { rememberedTableQuery } from '@/utils/tableState'
+import { findTweetMedia } from '@/utils/twitter'
+import type { TweetMedia } from '@/utils/twitter'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,12 +58,15 @@ const {
 const row = ref<Record<string, unknown> | null>(null)
 const previewRow = ref<Record<string, unknown> | null>(null)
 const previewLoading = ref(false)
+const mediaItems = ref<TweetMedia[]>([])
+const mediaLoading = ref(false)
 const loading = ref(false)
 const notFound = ref(false)
 const loadError = ref('')
 
 let requestSequence = 0
 let previewSequence = 0
+let mediaSequence = 0
 
 const title = computed(() => {
   const value = firstDetailValue(row.value, config.value?.title)
@@ -282,12 +288,38 @@ async function loadPreview(currentRow: Record<string, unknown>) {
   }
 }
 
+async function loadMedia(currentRow: Record<string, unknown>) {
+  if (config.value?.media !== 'twitter') return
+  const responseId = currentRow.response_id
+  const tweetId = currentRow.tweet_id
+  if (responseId === undefined || responseId === null || tweetId === undefined) return
+  const sequence = ++mediaSequence
+  mediaLoading.value = true
+  mediaItems.value = []
+  try {
+    const response = await api.response(responseId as number | string)
+    if (sequence !== mediaSequence) return
+    mediaItems.value = findTweetMedia(response.body, String(tweetId))
+  } catch {
+    if (sequence === mediaSequence) mediaItems.value = []
+  } finally {
+    if (sequence === mediaSequence) mediaLoading.value = false
+  }
+}
+
+function resetMedia() {
+  mediaSequence += 1
+  mediaItems.value = []
+  mediaLoading.value = false
+}
+
 async function load() {
   if (!table.value) return
   if (!decodedPk.value) {
     loadError.value = '主键参数无效'
     row.value = null
     resetExtras()
+    resetMedia()
     return
   }
   const sequence = ++requestSequence
@@ -297,16 +329,19 @@ async function load() {
   row.value = null
   previewRow.value = null
   resetExtras()
+  resetMedia()
   try {
     const response = await api.getRow(tableName.value, decodedPk.value)
     if (sequence !== requestSequence) return
     row.value = response.row
     void loadPreview(response.row)
     void loadExtras(response.row)
+    void loadMedia(response.row)
   } catch (caught) {
     if (sequence !== requestSequence) return
     row.value = null
     resetExtras()
+    resetMedia()
     if (caught instanceof ApiError && caught.status === 404) {
       notFound.value = true
     } else {
@@ -320,7 +355,11 @@ async function load() {
 watch(() => [table.value, pkParam.value] as const, load, { immediate: true })
 
 function goBack() {
-  router.push({ name: 'table', params: { table: tableName.value } })
+  router.push({
+    name: 'table',
+    params: { table: tableName.value },
+    query: rememberedTableQuery(tableName.value),
+  })
 }
 </script>
 
@@ -461,6 +500,33 @@ function goBack() {
             expanded
           />
         </section>
+      </div>
+
+      <div
+        v-if="config?.media === 'twitter' && (mediaLoading || mediaItems.length)"
+        class="media-section"
+      >
+        <p class="section-label">图片与视频</p>
+        <p v-if="mediaLoading" class="muted">正在读取图片…</p>
+        <div v-else class="media-grid">
+          <figure v-for="item in mediaItems" :key="item.url" class="media-item">
+            <video
+              v-if="item.videoUrl"
+              :src="item.videoUrl"
+              :poster="item.url"
+              controls
+              preload="metadata"
+            />
+            <a v-else :href="item.url" target="_blank" rel="noopener noreferrer">
+              <img
+                :src="item.url"
+                alt="推文图片"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              />
+            </a>
+          </figure>
+        </div>
       </div>
 
       <section v-if="childrenConfig" class="children-section">
@@ -817,6 +883,30 @@ function goBack() {
 
 .content-section {
   padding: 24px 28px;
+}
+
+.media-section {
+  padding: 0 28px 24px;
+}
+
+.media-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.media-item {
+  max-width: 360px;
+  margin: 0;
+}
+
+.media-item img,
+.media-item video {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
 }
 
 .content-block + .content-block {

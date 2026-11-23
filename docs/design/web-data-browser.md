@@ -252,6 +252,11 @@ web/
   - `children`：V2EX 主题详情内嵌回复，按时间升序，最多 200 条，并显示实际总数。
 - 搜索使用新增的 `search_columns` 请求字段：Bangumi 显式传 `['subject_json', 'comment']`，从而支持按条目名搜索；不传时保持原来的“非 JSON 文本列”行为，避免默认搜索命中 JSON 键名。
 - 深色模式：自定义 UI 的颜色统一走 `styles/main.css` 的语义变量；`@media (prefers-color-scheme: dark)` 与 OpenVue Aura 默认的 `system` 深色选择器对齐，页面背景、面板、表格、输入框和照片墙同时切换。未增加手动主题切换，跟随操作系统。
+- 平台切换与列表状态（2026-11 修复）：
+  - 切换平台时先清空上一张表的行并重置 `loaded`，避免旧行短暂出现在新表头下；同时移除 DataTable 的白色 loading 遮罩，改为空表“正在加载…”提示，分页/搜索时保留现有行直到新结果返回，避免深色模式下的白光和整表闪烁。
+  - `sessionStorage` 按表记住最近一次查询（分页、排序、搜索、过滤、列、照片墙/表格），并按键记住滚动位置；URL 仍是唯一可分享的状态源。侧栏平台切换、详情页“返回”、浏览器前进/后退都会恢复页码和滚动位置，仅在 URL 没有 query 且该表有记忆时用 `router.replace` 回填。
+  - QiReader 列表隐藏恒为“是”的 `is_saved`；`published_at` 实际是 epoch 毫秒，时间单位从 `iso` 修正为 `epoch_ms`。
+  - Twitter 投影表只保存正文和互动数，媒体在 raw response 里；详情页用 `twitter_tweet.response_id` 读取对应 raw body，递归找到该推文并提取 `legacy.extended_entities.media` / `legacy.entities.media` 的图片和最高码率 mp4。不修改 `src/` 的投影结构。
 
 ### CNBlog 正文缺口排查（2026-11）
 
@@ -297,6 +302,8 @@ web/
 - **DEC-014**：详情合并用客户端 `lookup` / `sources` / `children` 批量查询，不新增后端 join 端点 — 详情一次只打开一条记录，额外 1-3 个查询；保持通用 API 的简单性和可复用性。
 - **DEC-015**：CNBlog 空正文不在本分支修复 — 已确认是上游 `blogposts/{id}/body` 对旧文章返回 HTTP 200 + 空 body；本次只在 UI 显示“正文抓取为空”，修复留给独立分支。
 - **DEC-016**：深色模式跟随系统，不新增手动切换 — OpenVue Aura 默认使用 `prefers-color-scheme: dark`，自定义 UI 用同一媒体查询和语义色变量即可对齐；手动切换需要额外的持久化和首屏防闪逻辑，等用户明确需要再做。
+- **DEC-017**：表格查询与滚动位置放 `sessionStorage`，不放数据库或后端 — 这是单标签页的浏览状态，刷新/返回时恢复即可；跨标签页共享反而会让两个窗口互相覆盖。URL 继续承载可分享的查询。
+- **DEC-018**：Twitter 媒体从 raw response 读取，不改投影表 — 投影表没有媒体列，但 `twitter_tweet.response_id` 指向包含完整推文的 raw 页面；读取一条 raw body 即可恢复图片/视频，避免为前端展示改 `src/` 的 schema 和重建投影。
 
 ## 备选方案
 
@@ -331,6 +338,8 @@ web/
 - **RISK-016**：CNBlog 旧文章正文为空，详情只能显示提示和原文链接；修复需要 exporter 侧 HTML fallback 或把空 body 视为失败重试。
 - **RISK-017**：`subject_json` 搜索按 JSON 文本匹配，可能命中字段名；Bangumi 搜索词通常是标题/短评，影响可接受。
 - **RISK-018**：抓取正文可能自带内联颜色或白底图片；深色模式下正文外框是深色，但内容内部的作者自定义颜色不受控制。未强制覆盖内联样式，避免破坏原排版。
+- **RISK-019**：表格状态只在当前浏览器标签页内记忆；新标签页、清空站点数据或隐私模式会回到默认视图。滚动位置按“表 + 查询”保存，深页改动数据后可能落在一个略短/略长的位置。
+- **RISK-020**：Twitter 媒体依赖 raw response 仍保留原页面且 `response_id` 未变；重建投影后 id 会指向新响应，通常仍可用。若 raw 被清理或推文在页内结构变化，详情会静默隐藏媒体，正文不受影响。
 
 ## 验证方式
 
@@ -345,3 +354,4 @@ web/
 - **TEST-009**：前端配置测试覆盖主表、照片墙、facet、虚拟列、收藏夹和详情 `lookup` / `sources` / `children`；工具函数测试覆盖图片 URL、来源分组和收藏夹合并。
 - **TEST-010**：Playwright 冒烟覆盖 Bangumi / Bilibili 照片墙与表格切换、Bangumi facet、CNBlog / QiReader 正文、Twitter / V2EX / 知乎来源、V2EX 回复。
 - **TEST-011**：Playwright 分别在 `colorScheme: dark` 和 `colorScheme: light` 下检查首页、表格、照片墙、详情和 raw 页面，确认页面/表格/文字对比度正常。
+- **TEST-012**：Vitest 覆盖表格状态记忆、Twitter 媒体提取、QiReader 时间单位与隐藏列；Playwright 验证 QiReader 列/时间、页码与滚动恢复、切换平台无白色 loading 遮罩、Twitter 推文图片实际加载（`naturalWidth > 0`）。

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { RouterLink, onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import Button from 'openvue/button'
 import Column from 'openvue/column'
 import DataTable from 'openvue/datatable'
@@ -44,6 +44,14 @@ import type { FolderEntry } from '@/utils/extras'
 import { formatNumber } from '@/utils/format'
 import { relationDisplay, relationFieldColumn } from '@/utils/relation'
 import { encodePk } from '@/utils/pk'
+import {
+  rememberTableQuery,
+  rememberTableScroll,
+  rememberedTableQuery,
+  rememberedTableScroll,
+  tableQuery,
+  tableQueryKey,
+} from '@/utils/tableState'
 
 const route = useRoute()
 const router = useRouter()
@@ -226,13 +234,43 @@ function parseFilters(raw: string | undefined): FilterSpec[] {
   }
 }
 
+function currentScrollElement(): HTMLElement | null {
+  const selector =
+    viewMode.value === 'gallery' ? '.gallery-scroll' : '.table-frame .p-datatable-table-container'
+  return document.querySelector<HTMLElement>(selector)
+}
+
+let activeTable = ''
+let activeQueryKey = ''
+
+/** Remember how far this table+query was scrolled before leaving it. */
+function saveScrollPosition() {
+  if (!activeTable) return
+  rememberTableScroll(activeTable, activeQueryKey, currentScrollElement()?.scrollTop ?? 0)
+}
+
+function restoreScrollPosition(table: string, queryKey: string) {
+  const top = rememberedTableScroll(table, queryKey)
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      const element = currentScrollElement()
+      if (element) element.scrollTop = top
+    })
+  })
+}
+
 /**
  * Copy the URL into component state. URL is the single source of truth so the
  * browser back button and a full page refresh restore the exact same query.
+ * When a sidebar link arrives without a query, restore the last state for that
+ * table from sessionStorage instead of resetting to page one.
  */
-function hydrate() {
-  if (!table.value) return
-  const query = route.query
+function hydrate(): boolean {
+  if (!table.value) return false
+  const routeQuery = tableQuery(route.query)
+  const hasRouteQuery = Object.keys(routeQuery).length > 0
+  const remembered = rememberedTableQuery(tableName.value)
+  const query = hasRouteQuery ? routeQuery : remembered
   limit.value = Math.min(200, Math.max(1, readNumber(query.limit, 50)))
   offset.value = Math.max(0, readNumber(query.offset, 0))
   search.value = readString(query.q) ?? ''
@@ -253,9 +291,23 @@ function hydrate() {
   // Facet selections live in the same filter list; don't pop the drawer open
   // every time a chip is clicked.
   if (filters.value.length && !facets.value.length) filtersOpen.value = true
+
+  if (!hasRouteQuery && Object.keys(remembered).length) {
+    // Put the restored state back into the URL without adding a history entry;
+    // the watcher will run again with a normal query.
+    void router.replace({
+      name: 'table',
+      params: { table: tableName.value },
+      query: remembered,
+    })
+    return false
+  }
+  rememberTableQuery(tableName.value, query)
+  return true
 }
 
 function navigate(patch: Record<string, string | undefined>) {
+  saveScrollPosition()
   const query: Record<string, string> = {}
   for (const [key, value] of Object.entries(route.query)) {
     if (typeof value === 'string') query[key] = value
@@ -502,12 +554,35 @@ async function load() {
 
 watch(
   () => [table.value, route.query] as const,
-  () => {
-    hydrate()
-    void load()
+  async () => {
+    const previousTable = activeTable
+    saveScrollPosition()
+    if (!hydrate()) return
+    // Switching platforms must not show the previous table's rows under the
+    // new headers while the request is in flight.
+    if (previousTable && previousTable !== tableName.value) {
+      rows.value = []
+      total.value = 0
+      loaded.value = false
+      relationRows.value = new Map()
+      folders.value = new Map()
+      facetCounts.value = new Map()
+      loadError.value = ''
+    }
+    activeTable = tableName.value
+    activeQueryKey = tableQueryKey(route.query)
+    await load()
+    if (activeTable === tableName.value) {
+      restoreScrollPosition(activeTable, activeQueryKey)
+    }
   },
   { immediate: true, deep: true },
 )
+
+onBeforeUnmount(saveScrollPosition)
+// Vue Router runs this before the old view is detached, so the DataTable scroll
+// container is still readable here.
+onBeforeRouteLeave(saveScrollPosition)
 
 function submitSearch() {
   navigate({ q: searchDraft.value.trim() || undefined, offset: undefined })
@@ -554,6 +629,7 @@ function changeSort(event: DataTableSortEvent) {
 
 function openRowData(data: Record<string, unknown>) {
   if (!table.value) return
+  saveScrollPosition()
   const pk: Record<string, unknown> = {}
   for (const name of table.value.primary_key) {
     const value = data[name]
@@ -707,7 +783,6 @@ function openRow(event: DataTableRowClickEvent) {
           :first="offset"
           :total-records="total"
           :rows-per-page-options="[25, 50, 100, 200]"
-          :loading="loading"
           :sort-field="sortField"
           :sort-order="sortOrder"
           size="small"
@@ -774,7 +849,8 @@ function openRow(event: DataTableRowClickEvent) {
             </template>
           </Column>
           <template #empty>
-            <p class="empty-message">没有匹配的记录。</p>
+            <p v-if="loading" class="empty-message">正在加载…</p>
+            <p v-else-if="!loadError" class="empty-message">没有匹配的记录。</p>
           </template>
         </DataTable>
       </div>

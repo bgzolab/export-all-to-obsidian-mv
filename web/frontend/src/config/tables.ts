@@ -314,9 +314,9 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
   qireader_entry: {
     label: '稍后读',
     titleColumn: 'title',
-    listColumns: ['title', 'is_saved', 'published_at', 'crawled_at', 'db_updated_at', 'url'],
+    listColumns: ['title', 'published_at', 'crawled_at', 'db_updated_at', 'url'],
     defaultSort: { column: 'published_at', dir: 'desc' },
-    hiddenColumns: ['summary', 'origin_json', 'attachments_json', 'tag_ids_json'],
+    hiddenColumns: ['summary', 'origin_json', 'attachments_json', 'tag_ids_json', 'is_saved'],
   },
   sync_response: {
     label: 'raw 响应',
@@ -680,7 +680,7 @@ const TIME_UNIT_OVERRIDES: Record<string, Record<string, TimeUnit>> = {
   },
   netease_song: { publish_time: 'epoch_ms' },
   qireader_entry: {
-    published_at: 'iso',
+    published_at: 'epoch_ms',
     crawled_at: 'epoch_ms',
     timestamp: 'epoch_ms',
   },

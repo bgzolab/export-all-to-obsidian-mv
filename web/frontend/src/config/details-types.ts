@@ -98,6 +98,8 @@ export interface DetailConfig {
   related?: DetailRelatedSpec[]
   preview?: DetailPreviewSpec
   embed?: 'bilibili' | 'netease-song' | 'netease-playlist'
+  /** Attached media read from the raw response that produced this row. */
+  media?: 'twitter'
   lookup?: DetailLookupSpec
   sources?: DetailSourceSpec[]
   children?: DetailChildrenSpec
