@@ -13,7 +13,7 @@ import {
   platformKeys,
   platformLabel,
 } from '@/config/platforms'
-import { platformIcon, platformIconStyle } from '@/config/platformIcons'
+import { platformIcon, platformIconStyle } from '@/config/icons'
 import { tableLabel } from '@/config/tables'
 import { operationLabel, statusLabel, statusSeverity } from '@/config/columns'
 import {
@@ -230,7 +230,7 @@ const catalog = computed(() => {
                 :style="{ background: card.color }"
               >
                 <span
-                  class="platform-icon"
+                  class="mask-icon"
                   aria-hidden="true"
                   :style="platformIconStyle(card.key)"
                 />
@@ -297,7 +297,7 @@ const catalog = computed(() => {
             <span class="platform-mark" :style="{ background: card.color }">
               <span
                 v-if="card.icon"
-                class="platform-icon"
+                class="mask-icon"
                 aria-hidden="true"
                 :style="platformIconStyle(card.key)"
               />

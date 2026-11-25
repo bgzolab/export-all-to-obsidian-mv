@@ -1,3 +1,6 @@
+import brandLogo from '@/assets/favorite_list.svg?url'
+import kanbanIcon from '@/assets/kanban.svg?url'
+import timelineIcon from '@/assets/timeline.svg?url'
 import bangumiIcon from '@/assets/platforms/bangumi.svg?url'
 import bilibiliIcon from '@/assets/platforms/bilibili.svg?url'
 import cnblogsIcon from '@/assets/platforms/cnblogs.svg?url'
@@ -9,7 +12,9 @@ import v2exIcon from '@/assets/platforms/v2ex.svg?url'
 import weiboIcon from '@/assets/platforms/weibo.svg?url'
 import zhihuIcon from '@/assets/platforms/zhihu.svg?url'
 
-const ICONS: Record<string, string> = {
+export { brandLogo, kanbanIcon, timelineIcon }
+
+const PLATFORM_ICONS: Record<string, string> = {
   bangumi: bangumiIcon,
   bilibili: bilibiliIcon,
   cnblog: cnblogsIcon,
@@ -23,11 +28,15 @@ const ICONS: Record<string, string> = {
 }
 
 export function platformIcon(key: string): string | undefined {
-  return ICONS[key]
+  return PLATFORM_ICONS[key]
 }
 
-/** CSS variable consumed by the shared `.platform-icon` mask rules. */
+/** CSS variable consumed by the shared `.mask-icon` mask rules. */
+export function iconStyle(url: string): Record<string, string> {
+  return { '--icon-url': `url("${url}")` }
+}
+
 export function platformIconStyle(key: string): Record<string, string> | undefined {
   const icon = platformIcon(key)
-  return icon ? { '--icon-url': `url("${icon}")` } : undefined
+  return icon ? iconStyle(icon) : undefined
 }

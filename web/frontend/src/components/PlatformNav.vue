@@ -10,7 +10,13 @@ import {
   platformKeys,
   platformLabel,
 } from '@/config/platforms'
-import { platformIcon, platformIconStyle } from '@/config/platformIcons'
+import {
+  iconStyle,
+  kanbanIcon,
+  platformIcon,
+  platformIconStyle,
+  timelineIcon,
+} from '@/config/icons'
 
 const props = defineProps<{ schema: SchemaResponse }>()
 const route = useRoute()
@@ -59,7 +65,9 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
     <ul class="nav-list overview-list">
       <li>
         <RouterLink to="/" class="nav-item" :class="{ active: route.name === 'home' }">
-          <span class="nav-mark overview">览</span>
+          <span class="nav-mark overview">
+            <span class="mask-icon" aria-hidden="true" :style="iconStyle(kanbanIcon)" />
+          </span>
           <span class="nav-label">总览</span>
         </RouterLink>
       </li>
@@ -69,7 +77,9 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
           class="nav-item"
           :class="{ active: route.name === 'timeline' }"
         >
-          <span class="nav-mark timeline-mark">时</span>
+          <span class="nav-mark timeline-mark">
+            <span class="mask-icon" aria-hidden="true" :style="iconStyle(timelineIcon)" />
+          </span>
           <span class="nav-label">时间线</span>
         </RouterLink>
       </li>
@@ -88,7 +98,7 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
           <span class="nav-mark" :style="{ background: entry.color }">
             <span
               v-if="entry.icon"
-              class="platform-icon"
+              class="mask-icon"
               aria-hidden="true"
               :style="platformIconStyle(entry.key)"
             />

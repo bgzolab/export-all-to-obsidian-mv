@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 
 import PlatformNav from '@/components/PlatformNav.vue'
+import { brandLogo, iconStyle } from '@/config/icons'
 import { useSchema } from '@/composables/useSchema'
 
 const { schema } = useSchema()
@@ -11,7 +12,9 @@ const { schema } = useSchema()
   <div class="app-shell">
     <header class="app-header">
       <RouterLink to="/" class="brand" aria-label="返回总览">
-        <span class="brand-mark">et</span>
+        <span class="brand-mark">
+          <span class="mask-icon" aria-hidden="true" :style="iconStyle(brandLogo)" />
+        </span>
         <span class="brand-copy">
           <strong>eto 收藏库</strong>
           <small>本地只读数据浏览器</small>

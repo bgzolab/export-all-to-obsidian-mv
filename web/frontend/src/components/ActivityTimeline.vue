@@ -11,7 +11,7 @@ import type {
   TimelineItem,
 } from '@/api/types'
 import { platformConfigFor, platformLabel } from '@/config/platforms'
-import { platformIcon, platformIconStyle } from '@/config/platformIcons'
+import { platformIcon, platformIconStyle } from '@/config/icons'
 import { formatNumber } from '@/utils/format'
 import { encodePk } from '@/utils/pk'
 import { heatmapLevel, heatmapMonths, heatmapThresholds } from '@/utils/timeline'
@@ -318,7 +318,7 @@ watch(yearQuery, async () => {
               <span class="feed-mark" :style="{ background: colorFor(item) }">
                 <span
                   v-if="platformIcon(item.platform)"
-                  class="platform-icon"
+                  class="mask-icon"
                   aria-hidden="true"
                   :style="platformIconStyle(item.platform)"
                 />

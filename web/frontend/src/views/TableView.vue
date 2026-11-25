@@ -23,7 +23,7 @@ import { columnLabel, isIdColumn } from '@/config/columns'
 import { firstDetailValue } from '@/config/details'
 import type { DetailFieldSpec } from '@/config/details'
 import { platformConfigForTable, platformLabel } from '@/config/platforms'
-import { platformIcon, platformIconStyle } from '@/config/platformIcons'
+import { platformIcon, platformIconStyle } from '@/config/icons'
 import {
   defaultSortFor,
   facetsFor,
@@ -692,7 +692,7 @@ function openRow(event: DataTableRowClickEvent) {
             >
               <span
                 v-if="platform && platformIcon(platform.key)"
-                class="platform-icon"
+                class="mask-icon"
                 aria-hidden="true"
                 :style="platformIconStyle(platform.key)"
               />
