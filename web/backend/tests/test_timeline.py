@@ -100,7 +100,12 @@ def timeline_db(db_path):
     )
     connection.execute(
         'INSERT INTO qireader_entry VALUES (?, ?, ?, ?)',
-        ('entry-1', '稍后读标题', _local_epoch(days[4]) * 1000, str(_local_epoch(days[4]) * 1_000_000_000)),
+        (
+            'entry-1',
+            '稍后读标题',
+            _local_epoch(days[4]) * 1000,
+            str(_local_epoch(days[4]) * 1_000_000_000),
+        ),
     )
     connection.commit()
     connection.close()
@@ -203,7 +208,13 @@ def test_zhihu_collection_created_is_not_used(client, db_path):
 
 def test_timeline_is_empty_without_platform_tables(client):
     body = client.get('/api/timeline').json()
-    assert body == {'items': [], 'total': 0, 'limit': 30, 'offset': 0, 'has_more': False}
+    assert body == {
+        'items': [],
+        'total': 0,
+        'limit': 30,
+        'offset': 0,
+        'has_more': False,
+    }
 
     heatmap = client.get('/api/timeline/heatmap').json()
     assert heatmap['total'] == 0

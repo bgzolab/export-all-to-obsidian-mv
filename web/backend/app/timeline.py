@@ -103,7 +103,9 @@ def _available_sources(connection: sqlite3.Connection) -> list[TimelineSource]:
             "SELECT name FROM sqlite_master WHERE type = 'table'"
         )
     }
-    return [source for source in SOURCES if all(table in names for table in source.tables)]
+    return [
+        source for source in SOURCES if all(table in names for table in source.tables)
+    ]
 
 
 def _cte(connection: sqlite3.Connection) -> str | None:
@@ -138,7 +140,9 @@ def _valid_year(year: int | None) -> int | None:
     if year is None:
         return None
     if not 1900 <= year <= 2100:
-        raise HTTPException(status_code=400, detail='year must be between 1900 and 2100')
+        raise HTTPException(
+            status_code=400, detail='year must be between 1900 and 2100'
+        )
     return year
 
 
@@ -174,7 +178,7 @@ def list_timeline(
     if selected_day:
         clauses.append('day = ?')
         params.append(selected_day)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+    where = f'WHERE {" AND ".join(clauses)}' if clauses else ''
     total = connection.execute(
         f'{cte} SELECT COUNT(*) FROM timeline {where}', params
     ).fetchone()[0]
@@ -200,7 +204,7 @@ LIMIT ? OFFSET ?
             continue
         items.append(
             {
-                'key': f"{row['platform']}:{row['pk_json']}",
+                'key': f'{row["platform"]}:{row["pk_json"]}',
                 'platform': row['platform'],
                 'table': row['table_name'],
                 'pk': pk,
@@ -221,9 +225,7 @@ LIMIT ? OFFSET ?
     }
 
 
-def _available_years(
-    connection: sqlite3.Connection, cte: str | None
-) -> list[int]:
+def _available_years(connection: sqlite3.Connection, cte: str | None) -> list[int]:
     if cte is None:
         return []
     rows = connection.execute(
@@ -256,7 +258,11 @@ def heatmap(
     cte = _cte(connection)
     years = _available_years(connection, cte)
     if year is None:
-        year = current.year if current.year in years else (years[0] if years else current.year)
+        year = (
+            current.year
+            if current.year in years
+            else (years[0] if years else current.year)
+        )
     if years and year not in years:
         years = sorted({year, *years}, reverse=True)
 
