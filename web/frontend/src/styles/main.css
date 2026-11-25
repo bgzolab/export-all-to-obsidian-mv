@@ -335,6 +335,14 @@ h2 {
   font-size: 13px;
 }
 
+.platform-icon {
+  width: 62%;
+  height: 62%;
+  background: currentColor;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+  mask: var(--icon-url) center / contain no-repeat;
+}
+
 /*
  * PrimeVue's default surfaces are already close; these rules only calm the
  * header row and align row padding/hover with the rest of the custom panels.

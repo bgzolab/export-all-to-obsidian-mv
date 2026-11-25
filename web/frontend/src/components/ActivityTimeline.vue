@@ -11,6 +11,7 @@ import type {
   TimelineItem,
 } from '@/api/types'
 import { platformConfigFor, platformLabel } from '@/config/platforms'
+import { platformIcon, platformIconStyle } from '@/config/platformIcons'
 import { formatNumber } from '@/utils/format'
 import { encodePk } from '@/utils/pk'
 import { heatmapLevel, heatmapMonths, heatmapThresholds } from '@/utils/timeline'
@@ -315,7 +316,13 @@ watch(yearQuery, async () => {
             <RouterLink :to="detailRoute(item)" class="feed-row">
               <span class="feed-time">{{ clock(item) }}</span>
               <span class="feed-mark" :style="{ background: colorFor(item) }">
-                {{ markFor(item) }}
+                <span
+                  v-if="platformIcon(item.platform)"
+                  class="platform-icon"
+                  aria-hidden="true"
+                  :style="platformIconStyle(item.platform)"
+                />
+                <template v-else>{{ markFor(item) }}</template>
               </span>
               <span v-if="item.cover" class="feed-cover">
                 <img

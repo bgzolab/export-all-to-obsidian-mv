@@ -23,6 +23,7 @@ import { columnLabel, isIdColumn } from '@/config/columns'
 import { firstDetailValue } from '@/config/details'
 import type { DetailFieldSpec } from '@/config/details'
 import { platformConfigForTable, platformLabel } from '@/config/platforms'
+import { platformIcon, platformIconStyle } from '@/config/platformIcons'
 import {
   defaultSortFor,
   facetsFor,
@@ -688,7 +689,15 @@ function openRow(event: DataTableRowClickEvent) {
             <span
               class="platform-mark sm"
               :style="{ background: platform?.color }"
-            >{{ platform?.mark }}</span>
+            >
+              <span
+                v-if="platform && platformIcon(platform.key)"
+                class="platform-icon"
+                aria-hidden="true"
+                :style="platformIconStyle(platform.key)"
+              />
+              <template v-else>{{ platform?.mark }}</template>
+            </span>
             <div>
               <h1>{{ tableLabel(table.name) }}</h1>
               <p class="description">{{ tableDescription(table.name) }}</p>

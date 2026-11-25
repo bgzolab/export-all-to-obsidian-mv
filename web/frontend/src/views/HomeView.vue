@@ -13,6 +13,7 @@ import {
   platformKeys,
   platformLabel,
 } from '@/config/platforms'
+import { platformIcon, platformIconStyle } from '@/config/platformIcons'
 import { tableLabel } from '@/config/tables'
 import { operationLabel, statusLabel, statusSeverity } from '@/config/columns'
 import {
@@ -33,6 +34,7 @@ interface PlatformCard {
   key: string
   label: string
   mark: string
+  icon: string | undefined
   color: string
   description: string
   primaryTable: string
@@ -93,6 +95,7 @@ const platformCards = computed<PlatformCard[]>(() => {
         key,
         label: platformLabel(key),
         mark: config?.mark ?? platformLabel(key).slice(0, 1),
+        icon: platformIcon(key),
         color: config?.color ?? 'var(--text-tertiary)',
         description: config?.description ?? '数据库中的记录。',
         primaryTable,
@@ -221,7 +224,18 @@ const catalog = computed(() => {
         <div class="bars">
           <div v-for="card in distribution" :key="card.key" class="bar-row">
             <span class="bar-name">
-              <span class="dot" :style="{ background: card.color }" />
+              <span
+                v-if="card.icon"
+                class="bar-mark"
+                :style="{ background: card.color }"
+              >
+                <span
+                  class="platform-icon"
+                  aria-hidden="true"
+                  :style="platformIconStyle(card.key)"
+                />
+              </span>
+              <span v-else class="dot" :style="{ background: card.color }" />
               {{ card.label }}
             </span>
             <div class="bar-track">
@@ -280,7 +294,15 @@ const catalog = computed(() => {
           class="platform-card panel"
         >
           <div class="platform-head">
-            <span class="platform-mark" :style="{ background: card.color }">{{ card.mark }}</span>
+            <span class="platform-mark" :style="{ background: card.color }">
+              <span
+                v-if="card.icon"
+                class="platform-icon"
+                aria-hidden="true"
+                :style="platformIconStyle(card.key)"
+              />
+              <template v-else>{{ card.mark }}</template>
+            </span>
             <div class="platform-copy">
               <h3>{{ card.label }}</h3>
               <p>{{ card.description }}</p>
@@ -523,6 +545,17 @@ const catalog = computed(() => {
   height: 7px;
   border-radius: 50%;
   flex: none;
+}
+
+.bar-mark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
+  color: #ffffff;
 }
 
 .bar-track {
