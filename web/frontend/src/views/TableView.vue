@@ -143,6 +143,7 @@ const requestColumns = computed(() => {
     const fallbackSpecs = [
       ...(relationConfig.fallbackTitles ?? []),
       ...(relationConfig.fallbackSubtitle ? [relationConfig.fallbackSubtitle] : []),
+      ...(relationConfig.fallbackCover ? [relationConfig.fallbackCover] : []),
     ]
     for (const spec of fallbackSpecs) addSpec(spec)
   }
@@ -342,6 +343,7 @@ async function loadRelation(sourceRows: Array<Record<string, unknown>>, sequence
   for (const title of config.titles) columns.add(relationFieldColumn(title))
   if (config.subtitle) columns.add(relationFieldColumn(config.subtitle))
   if (config.timeColumn) columns.add(config.timeColumn)
+  if (config.cover) columns.add(relationFieldColumn(config.cover))
 
   try {
     const response = await api.queryTable(config.table, {
@@ -367,7 +369,7 @@ function relationTarget(row: Record<string, unknown>): Record<string, unknown> |
 
 function relationView(row: Record<string, unknown>) {
   const config = relation.value
-  if (!config) return { title: '', meta: '', hasTarget: false }
+  if (!config) return { title: '', meta: '', cover: '', hasTarget: false }
   const targetTable = schema.value?.tables.find((item) => item.name === config.table)
   return relationDisplay(
     config,
@@ -384,6 +386,10 @@ function relationTitle(row: Record<string, unknown>): string {
 
 function relationMeta(row: Record<string, unknown>): string {
   return relationView(row).meta
+}
+
+function relationCover(row: Record<string, unknown>): string {
+  return relationView(row).cover
 }
 
 /** Enrich the current page with Bilibili favorite folders in two batch queries. */
@@ -508,6 +514,11 @@ function setView(mode: 'gallery' | 'table') {
 function virtualValue(column: VirtualColumn, row: Record<string, unknown>): string {
   const value = firstDetailValue(row, column.spec)
   return value === undefined || value === null || value === '' ? '—' : String(value)
+}
+
+function virtualImage(column: VirtualColumn, row: Record<string, unknown>): string {
+  const value = firstDetailValue(row, column.spec)
+  return value === undefined || value === null || value === '' ? '' : String(value)
 }
 
 function folderEntries(row: Record<string, unknown>): FolderEntry[] {
@@ -836,12 +847,22 @@ function openRow(event: DataTableRowClickEvent) {
           <Column v-if="relation" :header="relation.label" :sortable="false">
             <template #body="{ data }">
               <div class="relation-cell">
-                <span class="relation-title" :title="relationTitle(data)">
-                  {{ relationTitle(data) }}
-                </span>
-                <span v-if="relationMeta(data)" class="relation-meta">
-                  {{ relationMeta(data) }}
-                </span>
+                <img
+                  v-if="relationCover(data)"
+                  :src="relationCover(data)"
+                  alt=""
+                  class="relation-cover"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                >
+                <div class="relation-copy">
+                  <span class="relation-title" :title="relationTitle(data)">
+                    {{ relationTitle(data) }}
+                  </span>
+                  <span v-if="relationMeta(data)" class="relation-meta">
+                    {{ relationMeta(data) }}
+                  </span>
+                </div>
               </div>
             </template>
           </Column>
@@ -852,7 +873,15 @@ function openRow(event: DataTableRowClickEvent) {
             :sortable="false"
           >
             <template #body="{ data }">
-              <span class="virtual-text" :title="virtualValue(column, data)">
+              <img
+                v-if="column.kind === 'image' && virtualImage(column, data)"
+                :src="virtualImage(column, data)"
+                alt=""
+                class="virtual-image"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              >
+              <span v-else class="virtual-text" :title="virtualValue(column, data)">
                 {{ virtualValue(column, data) }}
               </span>
             </template>
@@ -1034,6 +1063,15 @@ function openRow(event: DataTableRowClickEvent) {
   color: var(--text);
 }
 
+.virtual-image {
+  width: 40px;
+  height: 40px;
+  display: block;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-sunken);
+}
+
 .folder-cell {
   display: flex;
   flex-direction: column;
@@ -1054,10 +1092,26 @@ function openRow(event: DataTableRowClickEvent) {
 
 .relation-cell {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
   max-width: 460px;
   min-width: 220px;
+}
+
+.relation-cover {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-sunken);
+}
+
+.relation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .relation-title {

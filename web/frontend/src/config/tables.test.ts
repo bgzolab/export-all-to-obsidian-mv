@@ -146,6 +146,24 @@ describe('table display config', () => {
     expect(searchColumnsFor('zhihu_content')).toBeUndefined()
   })
 
+  it('shows NetEase covers in song, playlist and play-record lists', () => {
+    expect(virtualColumnsFor('netease_song')).toContainEqual({
+      name: 'cover',
+      label: '封面',
+      kind: 'image',
+      spec: ['album_json.picUrl'],
+    })
+    expect(virtualColumnsFor('netease_playlist')[0]?.spec).toEqual(['cover_img_url'])
+    expect(tableRelation('netease_playlist_song')?.cover).toEqual({
+      column: 'album_json',
+      path: ['picUrl'],
+    })
+    expect(tableRelation('netease_play_record')?.fallbackCover).toEqual({
+      column: 'song_json',
+      path: ['al', 'picUrl'],
+    })
+  })
+
   it('declares virtual columns and Bilibili folder joins', () => {
     expect(virtualColumnsFor('bangumi_collection')[0]?.name).toBe('subject_title')
     expect(virtualColumnsFor('bilibili_media')[0]?.kind).toBe('folders')

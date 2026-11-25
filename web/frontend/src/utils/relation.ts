@@ -7,6 +7,7 @@ import { formatCellValue, stripHtml, truncate } from './format'
 export interface RelationDisplay {
   title: string
   meta: string
+  cover: string
   hasTarget: boolean
 }
 
@@ -44,6 +45,11 @@ export function relationDisplay(
     : detailFieldValue(sourceRow, config.fallbackSubtitle)
   const subtitle = subtitleValue === undefined ? '' : truncate(scalar(subtitleValue), 40)
 
+  const coverValue = targetRow
+    ? detailFieldValue(targetRow, config.cover)
+    : detailFieldValue(sourceRow, config.fallbackCover)
+  const cover = coverValue === undefined ? '' : scalar(coverValue)
+
   let time = ''
   if (targetRow && config.timeColumn) {
     const value = detailFieldValue(targetRow, config.timeColumn)
@@ -60,6 +66,7 @@ export function relationDisplay(
   return {
     title: truncate(title, 180),
     meta,
+    cover,
     hasTarget: Boolean(targetRow),
   }
 }

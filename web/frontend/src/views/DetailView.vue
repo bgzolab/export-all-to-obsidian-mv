@@ -232,7 +232,7 @@ const embedUrl = computed(() => {
     return bvid ? `https://player.bilibili.com/player.html?bvid=${bvid}&autoplay=0` : ''
   }
   if (config.value?.embed === 'netease-song' && id.song_id) {
-    return `https://music.163.com/outchain/player?type=2&id=${id.song_id}&auto=0&height=86`
+    return `https://music.163.com/outchain/player?type=2&id=${id.song_id}&auto=0&height=90`
   }
   if (config.value?.embed === 'netease-playlist' && id.playlist_id) {
     return `https://music.163.com/outchain/player?type=0&id=${id.playlist_id}&auto=0&height=430`
@@ -1131,7 +1131,7 @@ function goBack() {
   display: block;
   width: 100%;
   max-width: 820px;
-  height: 86px;
+  height: 100px;
   border: 0;
   border-radius: 12px;
 }

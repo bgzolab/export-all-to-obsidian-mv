@@ -58,15 +58,24 @@ describe('relation display', () => {
       timeColumn: 'publish_time',
       fallbackTitles: [{ column: 'song_json', path: ['name'] }],
       fallbackSubtitle: { column: 'song_json', path: ['ar', 0, 'name'] },
+      fallbackCover: { column: 'song_json', path: ['al', 'picUrl'] },
     }
     const display = relationDisplay(
       relation,
-      { song_id: 1, song_json: { name: '回不去的回忆', ar: [{ name: '小男孩乐团' }] } },
+      {
+        song_id: 1,
+        song_json: {
+          name: '回不去的回忆',
+          ar: [{ name: '小男孩乐团' }],
+          al: { picUrl: 'https://p1.music.126.net/cover.jpg' },
+        },
+      },
       undefined,
       undefined,
     )
     expect(display.title).toBe('回不去的回忆')
     expect(display.meta).toBe('小男孩乐团')
+    expect(display.cover).toBe('https://p1.music.126.net/cover.jpg')
     expect(display.hasTarget).toBe(false)
   })
 

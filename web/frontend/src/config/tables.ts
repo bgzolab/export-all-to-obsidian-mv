@@ -24,6 +24,9 @@ export interface RelationConfig {
   /** Fall back to the source row when the target entity is not projected. */
   fallbackTitles?: Array<string | DetailFieldSpec>
   fallbackSubtitle?: string | DetailFieldSpec
+  /** Cover of the target entity, shown as a list thumbnail. */
+  cover?: string | DetailFieldSpec
+  fallbackCover?: string | DetailFieldSpec
 }
 
 export interface GalleryMeta {
@@ -62,7 +65,7 @@ export interface VirtualColumn {
   label: string
   /** Text columns use the first non-empty spec. */
   spec?: Array<string | DetailFieldSpec>
-  kind?: 'text' | 'folders'
+  kind?: 'text' | 'image' | 'folders'
 }
 
 interface TableConfig {
@@ -266,6 +269,8 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
       timeColumn: 'publish_time',
       fallbackTitles: [{ column: 'song_json', path: ['name'] }],
       fallbackSubtitle: { column: 'song_json', path: ['ar', 0, 'name'] },
+      cover: { column: 'album_json', path: ['picUrl'] },
+      fallbackCover: { column: 'song_json', path: ['al', 'picUrl'] },
     },
   },
   netease_playlist: {
@@ -274,6 +279,9 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     listColumns: ['name', 'track_count', 'play_count', 'create_time', 'update_time', 'db_updated_at'],
     defaultSort: { column: 'update_time', dir: 'desc' },
     hiddenColumns: ['description', 'creator_json', 'tags_json'],
+    virtualColumns: [
+      { name: 'cover', label: '封面', kind: 'image', spec: ['cover_img_url'] },
+    ],
   },
   netease_playlist_song: {
     label: '网易云歌单曲目',
@@ -287,6 +295,7 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
       titles: ['name'],
       subtitle: { column: 'artists_json', path: [0, 'name'] },
       timeColumn: 'publish_time',
+      cover: { column: 'album_json', path: ['picUrl'] },
     },
   },
   netease_song: {
@@ -295,6 +304,9 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     listColumns: ['name', 'duration', 'publish_time', 'fee', 'db_updated_at'],
     defaultSort: { column: 'publish_time', dir: 'desc' },
     hiddenColumns: ['artists_json', 'album_json', 'alias_json', 'trans_names_json'],
+    virtualColumns: [
+      { name: 'cover', label: '封面', kind: 'image', spec: ['album_json.picUrl'] },
+    ],
   },
   qireader_article: {
     label: '文章正文',

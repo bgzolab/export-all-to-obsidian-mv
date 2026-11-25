@@ -206,11 +206,11 @@ web/
   - `/raw/responses/:id`：response 详情。
 - 字段可读性由 `src/config/columns.ts` 统一处理：列名中文标签、平台特定取值字典（如知乎 `answer` → 回答、Bangumi 收藏类型）、布尔/时长/时间/ID 的格式化。未知列回退到原始列名。
 - 投影表列表默认隐藏行 ID、`response_id` 和 `db_created_at`；主键仍随查询请求，用于行点击进入详情。列表时间列按平台覆盖：发布时间（`created_at` / `published_at` / `pubtime` / `publish_time`）、收藏时间（`date_added` / `starred_at` / `fav_time` / Bangumi `updated_at`）；知乎收藏项 `created` 实际是内容发布时间，不作为收藏时间展示；同步时间（`db_updated_at`）。
-- 关联表（`twitter_like`、`twitter_bookmark`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`、`netease_play_record`、`cnblog_post`、`qireader_article`）在 `config/tables.ts` 声明 `relation`，每页用一次 `IN` 查询批量取目标记录，列表显示目标标题、作者和发布时间，而不是裸外键。目标行缺失时优先回退到源行内嵌快照（如网易云 `song_json`），再显示“关联记录缺失”。
+- 关联表（`twitter_like`、`twitter_bookmark`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`、`netease_play_record`、`cnblog_post`、`qireader_article`）在 `config/tables.ts` 声明 `relation`，每页用一次 `IN` 查询批量取目标记录，列表显示目标标题、作者和发布时间，而不是裸外键；配置 `cover` 时同时显示目标封面缩略图（网易云歌曲关联列）。目标行缺失时优先回退到源行内嵌快照（如网易云 `song_json`），再显示“关联记录缺失”。
 - 详情布局由 `src/config/details.ts` 按表声明标题、副标题、封面、正文、互动数、元信息、外链、播放器、关联记录和预览目标：
   - 文章/主题/推文：标题、作者、时间、互动数、清洗后的正文。
   - 视频：封面、UP 主、播放/收藏/弹幕数、Bilibili iframe 播放器、简介。
-  - 音乐：专辑封面、歌手、专辑、时长、网易云播放器；歌单显示曲目数并链接到曲目表。
+  - 音乐：专辑封面、歌手、专辑、时长、网易云播放器；歌曲播放器使用 90px 紧凑控制条并保留完整高度，歌单显示曲目数并链接到曲目表。
   - GitHub：仓库名、描述、Stars/Forks/Issues、标签、README（相对图片按 `raw.githubusercontent.com/<repo>/HEAD/` 解析）。
   - 关联表（`twitter_like`、`v2ex_favorite`、`zhihu_collection_item`、`bilibili_fav_item`、`netease_playlist_song`）：加载目标行并用 `PreviewCard` 展示标题、摘要和互动数，再链接到完整详情。
   - 没有平台配置的表回退到通用字段视图，并默认展开“全部字段（技术视图）”。
@@ -228,7 +228,7 @@ web/
   - `json`：`*_json` 列用可折叠 JSON 树，不直接显示字符串。
   - `boolean` / `number` / `tag`。
   - `response_id` / `*_response_id`：跳转 raw response 详情。
-- 每表配置 `src/config/tables.ts`：显示名、说明、计数单位、标题列、列表列、默认排序、时间列及单位、HTML/Markdown 列、图片列、隐藏列（`body`、`content_json`、`request` 等）。未知表走自动推断。
+- 每表配置 `src/config/tables.ts`：显示名、说明、计数单位、标题列、列表列、默认排序、时间列及单位、HTML/Markdown 列、图片列、隐藏列（`body`、`content_json`、`request` 等）。网易云列表用 `kind: 'image'` 的虚拟列从 `album_json` / `cover_img_url` / `song_json` 提取封面，不新增数据库列。未知表走自动推断。
 - 看板使用 CSS 横向条形图展示平台分布，不引入图表库；最近同步直接读取 `/api/runs?limit=200`，成功率按已完成 run 计算。
 - raw 详情：JSON 树/文本、截断提示、复制、下载原始文本。
 - 安全：所有 HTML 经 DOMPurify；`v-html` 只用于清洗后的内容；外链 `rel="noopener noreferrer"`。
