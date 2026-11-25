@@ -63,5 +63,6 @@ describe('detail config', () => {
     ])
     expect(detailConfigFor('v2ex_topic')?.children?.table).toBe('v2ex_reply')
     expect(detailConfigFor('zhihu_content')?.sources?.[0]?.label).toBe('知乎收藏夹')
+    expect(detailConfigFor('zhihu_content')?.sources?.[0]?.timeColumn).toBeUndefined()
   })
 })

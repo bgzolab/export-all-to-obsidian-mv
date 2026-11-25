@@ -22,7 +22,7 @@ def _local_epoch(day: date, hour: int = 12) -> int:
 
 @pytest.fixture()
 def timeline_db(db_path):
-    """Add the six timeline sources and six rows spread over consecutive days."""
+    """Add the five timeline sources and five rows spread over consecutive days."""
     today = date(2026, 11, 20)
     days = [today - timedelta(days=offset) for offset in range(6)]
     connection = sqlite3.connect(db_path)
@@ -65,12 +65,6 @@ def timeline_db(db_path):
             crawled_at INTEGER NOT NULL,
             timestamp TEXT NOT NULL
         );
-        CREATE TABLE zhihu_collection_item (
-            collection_id TEXT NOT NULL,
-            content_id TEXT NOT NULL,
-            created TEXT NOT NULL,
-            PRIMARY KEY (collection_id, content_id)
-        );
         """
     )
     connection.execute(
@@ -108,18 +102,6 @@ def timeline_db(db_path):
         'INSERT INTO qireader_entry VALUES (?, ?, ?, ?)',
         ('entry-1', '稍后读标题', _local_epoch(days[4]) * 1000, str(_local_epoch(days[4]) * 1_000_000_000)),
     )
-    connection.execute(
-        'INSERT INTO zhihu_content (content_id, type, title, author_json, response_id) '
-        'VALUES (?, ?, ?, ?, ?)',
-        ('z1', 'answer', '知乎标题', '{"name":"作者"}', 1),
-    )
-    connection.executemany(
-        'INSERT INTO zhihu_collection_item VALUES (?, ?, ?)',
-        [
-            ('c1', 'z1', _local_iso(days[5])),
-            ('c2', 'z1', _local_iso(days[5] - timedelta(days=1))),
-        ],
-    )
     connection.commit()
     connection.close()
     return days
@@ -129,7 +111,7 @@ def test_timeline_orders_and_pages(client, timeline_db):
     first = client.get('/api/timeline?limit=2&offset=0')
     assert first.status_code == 200
     body = first.json()
-    assert body['total'] == 6
+    assert body['total'] == 5
     assert body['has_more'] is True
     assert [item['platform'] for item in body['items']] == ['bangumi', 'bilibili']
     assert body['items'][0]['pk'] == {'subject_id': 1}
@@ -139,19 +121,19 @@ def test_timeline_orders_and_pages(client, timeline_db):
     assert body['items'][0]['time_label'] == '收藏更新'
 
     second = client.get('/api/timeline?limit=2&offset=2').json()
-    assert second['total'] == 6
+    assert second['total'] == 5
     assert second['has_more'] is True
     assert [item['platform'] for item in second['items']] == ['cnblog', 'github']
 
     last = client.get('/api/timeline?limit=2&offset=4').json()
     assert last['has_more'] is False
-    assert [item['platform'] for item in last['items']] == ['qireader', 'zhihu']
+    assert [item['platform'] for item in last['items']] == ['qireader']
 
 
 def test_timeline_deduplicates_relations(client, timeline_db):
     body = client.get('/api/timeline?day=' + timeline_db[1].isoformat()).json()
-    # Two fav rows for one media, and two collection rows for one answer, each
-    # contribute one timeline item at their latest save time.
+    # Two fav rows for one media contribute one timeline item at its latest
+    # save time.
     assert [item['platform'] for item in body['items']] == ['bilibili']
     assert body['items'][0]['pk'] == {'media_id': 10}
 
@@ -168,7 +150,7 @@ def test_timeline_day_filter_and_validation(client, timeline_db):
 
 def test_timeline_year_filter(client, timeline_db):
     body = client.get('/api/timeline?year=2026').json()
-    assert body['total'] == 6
+    assert body['total'] == 5
     assert client.get('/api/timeline?year=2025').json()['total'] == 0
     assert client.get('/api/timeline?year=1800').status_code == 400
 
@@ -185,11 +167,38 @@ def test_heatmap_returns_sunday_aligned_zero_filled_days(client, timeline_db):
     assert end >= date(2026, 12, 31)
     assert len(body['days']) == (end - start).days + 1
     assert all('date' in day and 'count' in day for day in body['days'])
-    assert body['total'] == 6
+    assert body['total'] == 5
     counts = {day['date']: day['count'] for day in body['days']}
-    for item_day in timeline_db:
+    for item_day in timeline_db[:-1]:
         assert counts[item_day.isoformat()] == 1
     assert client.get('/api/timeline/heatmap?year=1800').status_code == 400
+
+
+def test_zhihu_collection_created_is_not_used(client, db_path):
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        CREATE TABLE zhihu_collection_item (
+            collection_id TEXT NOT NULL,
+            content_id TEXT NOT NULL,
+            created TEXT NOT NULL,
+            PRIMARY KEY (collection_id, content_id)
+        );
+        """
+    )
+    connection.execute(
+        "INSERT INTO zhihu_content (content_id, title, response_id) VALUES ('z1', 'old answer', 1)"
+    )
+    connection.execute(
+        "INSERT INTO zhihu_collection_item VALUES ('c1', 'z1', '2011-05-08T09:45:31+08:00')"
+    )
+    connection.commit()
+    connection.close()
+
+    # The Zhihu item `created` is the content publication time, not the time it
+    # was added to the collection; the timeline must ignore the whole platform.
+    assert client.get('/api/timeline?year=2011').json()['total'] == 0
+    assert client.get('/api/timeline/heatmap?year=2011').json()['total'] == 0
 
 
 def test_timeline_is_empty_without_platform_tables(client):

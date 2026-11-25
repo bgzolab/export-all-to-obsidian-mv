@@ -280,8 +280,8 @@ const DETAIL_CONFIGS: Record<string, DetailConfig> = {
         table: 'zhihu_collection_item',
         column: 'content_id',
         label: '知乎收藏夹',
-        timeColumn: 'created',
-        timeLabel: '收藏',
+        // The Zhihu collection item `created` mirrors the content publication
+        // time, not when the answer was added; do not show it as a save time.
       },
     ],
   },

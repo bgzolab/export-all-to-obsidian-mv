@@ -93,22 +93,6 @@ FROM qireader_entry
 WHERE timestamp <> '' AND CAST(timestamp AS INTEGER) > 0
 """,
     ),
-    TimelineSource(
-        tables=('zhihu_content', 'zhihu_collection_item'),
-        sql="""
-SELECT 'zhihu', 'zhihu_content', json_object('content_id', c.content_id), c.title,
-       COALESCE(json_extract(c.author_json, '$.name'), c.type, ''), '',
-       CAST(strftime('%s', ci.saved_at) AS INTEGER), '收藏'
-FROM zhihu_content c
-JOIN (
-  SELECT content_id, MAX(created) AS saved_at
-  FROM zhihu_collection_item
-  WHERE created <> ''
-  GROUP BY content_id
-) ci ON ci.content_id = c.content_id
-WHERE strftime('%s', ci.saved_at) IS NOT NULL
-""",
-    ),
 )
 
 

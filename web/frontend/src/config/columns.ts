@@ -273,7 +273,7 @@ const TABLE_COLUMN_LABELS: Record<string, Record<string, string>> = {
     updated_time: '内容更新时间',
   },
   zhihu_collection_item: {
-    created: '收藏时间',
+    created: '内容发布时间',
   },
 }
 
