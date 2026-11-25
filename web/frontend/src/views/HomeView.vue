@@ -155,13 +155,13 @@ const catalog = computed(() => {
   <p v-else-if="!schema" class="muted">正在读取数据目录…</p>
 
   <div v-else class="dashboard">
-    <header class="hero page-header">
+    <header class="hero page-header panel">
       <div>
         <p class="eyebrow">ETO · 本地收藏库</p>
         <h1>我的数字收藏</h1>
         <p class="hero-lede">
-          {{ platformCards.length }} 个平台，{{ formatNumber(totalItems) }} 条主内容。
-          这些是 eto 从各平台导出到本地 SQLite 的只读副本。
+          从 {{ platformCards.length }} 个平台收拢到一起的 {{ formatNumber(totalItems) }} 条主内容。
+          这是 eto 导出到本地 SQLite 的只读副本。
         </p>
       </div>
       <div class="hero-actions">
@@ -172,6 +172,7 @@ const catalog = computed(() => {
           size="small"
           @click="infoVisible = true"
         />
+        <RouterLink to="/timeline" class="ghost-link">时间线</RouterLink>
         <RouterLink to="/raw" class="ghost-link">同步记录</RouterLink>
       </div>
     </header>
@@ -355,11 +356,32 @@ const catalog = computed(() => {
   max-width: 1280px;
 }
 
+.hero {
+  position: relative;
+  padding: 26px 28px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(560px 200px at 0% 0%, rgb(99 102 241 / 12%), transparent 68%),
+    var(--surface);
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -60px -120px auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(14 165 233 / 9%), transparent 65%);
+  pointer-events: none;
+}
+
 .hero-lede {
   max-width: 680px;
   color: var(--text-tertiary);
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 .hero-actions {
@@ -588,25 +610,14 @@ const catalog = computed(() => {
 
 .platform-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgb(15 23 42 / 8%);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
 }
 
 .platform-head {
   display: flex;
   align-items: flex-start;
   gap: 11px;
-}
-
-.platform-mark {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .platform-copy {

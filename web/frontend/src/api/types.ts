@@ -106,3 +106,39 @@ export interface ResponseDetail extends ResponseSummary {
   body_size: number
   content_type: 'json' | 'text' | 'empty'
 }
+
+export interface TimelineItem {
+  key: string
+  platform: string
+  table: string
+  pk: Record<string, unknown>
+  title: string
+  subtitle: string
+  cover: string
+  occurred_at: number
+  time_label: string
+  day: string
+}
+
+export interface TimelineResponse {
+  items: TimelineItem[]
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface TimelineHeatmapDay {
+  date: string
+  count: number
+}
+
+export interface TimelineHeatmapResponse {
+  year: number
+  years: number[]
+  start: string
+  end: string
+  days: TimelineHeatmapDay[]
+  total: number
+  max: number
+}

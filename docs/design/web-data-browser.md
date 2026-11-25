@@ -183,14 +183,22 @@ web/
 - `GET /api/responses?run_id=1&limit=50&offset=0`
 - `GET /api/responses/{id}` → `{"id":..., "request": {...}, "body": {...}|"...", "body_truncated": false, "body_size": 12345, "content_type": "json"}`
 
+#### timeline
+
+- `GET /api/timeline?year=2026&limit=30&offset=0` → 所选年份的有保存时间的平台，按时间从新到旧
+- `GET /api/timeline?year=2026&day=2026-11-20` → 只返回该年份该本地日期的记录
+- `GET /api/timeline/heatmap?year=2026` → `{"year": 2026, "years": [2026, 2025, ...], "start": "...", "end": "...", "days": [{"date": "2026-11-20", "count": 3}], "total": 1497, "max": 100}`，缺数据的日期补 0；不传 `year` 时默认当前年或最近有数据的年份
+- 响应结构：`{"items": [{"platform", "table", "pk", "title", "subtitle", "cover", "occurred_at", "time_label", "day"}], "total", "limit", "offset", "has_more"}`
+
 ### 前端
 
-- Vue 3 + Vite + TypeScript + Vue Router + OpenVue 1.1.1（`openvue/datatable`、`openvue/column`、`openvue/tag`、`openvue/image`、`openvue/tree`）；`dayjs` 时间格式化，`DOMPurify` 清洗 HTML，`marked` 渲染 Markdown；不引入 Pinia/Axios，查询状态放路由 query。
-- 依赖锁精确版本：`openvue@1.1.1`、`@openvue/themes@1.1.1`；OpenVue 是 2026-07 的年轻 fork，升级前跑全量冒烟。
-- 布局：左侧平台导航，顶部品牌与只读状态，主区看板/列表/详情；`html,body,#app` 锁定视口高度，`app-main` 独立滚动，列表页的 DataTable 用 `scrollHeight="flex"` 占满剩余高度，分页器固定在底部。
+- Vue 3 + Vite + TypeScript + Vue Router + OpenVue 1.1.1（`openvue/datatable`、`openvue/column`、`openvue/tag`、`openvue/image`、`openvue/tree`、`openvue/toolbar`、`openvue/skeleton`）；`dayjs` 时间格式化，`DOMPurify` 清洗 HTML，`marked` 渲染 Markdown；不引入 Pinia/Axios，查询状态放路由 query。
+- 依赖锁精确版本：`openvue@1.1.1`、`@openvue/themes@1.1.1`；OpenVue 是 2026-07 的年轻 fork，升级前跑全量冒烟。`main.ts` 用 `definePreset` 把 Aura 的 emerald 主色固定到 indigo，避免按钮/焦点环与自定义链接颜色两套强调色。
+- 布局：左侧“总览 + 平台”导航，顶部品牌与只读状态，主区看板/列表/详情；`html,body,#app` 锁定视口高度，`app-main` 独立滚动，列表页的 DataTable 用 `scrollHeight="flex"` 占满剩余高度，分页器固定在底部。
 - 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。未填值的过滤条件保留在 UI/URL 中但不发送到 SQLite，避免列表闪成 0 行。
 - 路由：
   - `/` 看板：平台主内容数量、平台分布、最近同步、近期成功率；表目录收进“数据说明”弹窗。
+  - `/timeline` 时间线：年份选择热力图、按天筛选、无限滚动活动动态；与看板平级。
   - `/t/:table` 列表：平台主视图、分页、排序、搜索、列选择、过滤条；Bangumi / Bilibili 支持照片墙 / 表格切换；状态同步到 URL。次要表只从“数据说明”目录进入。
   - `/t/:table/:pk` 详情：`pk` 为 base64url(JSON)，支持复合主键。
   - `/raw`：run 列表。
@@ -258,6 +266,46 @@ web/
   - QiReader 列表隐藏恒为“是”的 `is_saved`；`published_at` 实际是 epoch 毫秒，时间单位从 `iso` 修正为 `epoch_ms`。
   - Twitter 投影表只保存正文和互动数，媒体在 raw response 里；详情页用 `twitter_tweet.response_id` 读取对应 raw body，递归找到该推文并提取 `legacy.extended_entities.media` / `legacy.entities.media` 的图片和最高码率 mp4。不修改 `src/` 的投影结构。
 
+### 视觉系统与详情阅读（2026-11）
+
+- 设计基线：Aura 主题主色用 `definePreset` 覆盖为 indigo，OpenVue 按钮、焦点环、分页器与自定义链接共用一套强调色；页面背景加轻微径向渐变，面板、表格和侧栏统一使用语义色变量与 `--radius-lg`。侧栏每个平台显示品牌色方块标记，当前项有左侧强调条；列表页标题也显示平台标记。
+- 列表工具栏收进独立面板，搜索、筛选、列选择和照片墙/表格切换保持原有行为；DataTable 表头、行距、hover 和分页器做轻度覆盖，不改变 lazy 分页/排序协议。
+- 详情页重排为“编辑型”阅读布局：
+  - 顶部 `Toolbar` 吸顶，包含返回列表、平台/表名、当前记录位置（如 `31 / 839`）和上一条/下一条。滚动长文时始终可切换。
+  - 上方 hero 区显示平台色顶部条、封面、标题、副标题、互动数卡片、原站链接和最近同步时间。
+  - 主体在宽屏上分成两栏：左侧 680px 阅读列，右侧 288px sticky 侧栏；侧栏放记录信息、来源、相关链接和 raw response 入口。宽度低于 1080px 时合并为单栏，侧栏内容变成两列/单列块。
+  - 正文排版：16px / 1.85 行高，段落与 `<section>` 段落间距 1.15em；标题、引用、代码块、表格、图片、链接都有统一样式。抓取 HTML 中大量 `<section>` 段落不再挤成一块。
+  - V2EX 回复改为头像首字母 + 上下文的列表；Twitter 图片改为两列网格；技术字段仍收在“全部字段（技术视图）”。
+- 上一条/下一条不新增后端端点：列表加载成功后把当前页的 `QueryRequest` 和主键列表写入 `sessionStorage`；详情页命中当前页时直接切换。走到页首/页尾时用同一个 request（保留排序、过滤、搜索）请求相邻页，再跳到第一/最后一条。直接打开详情 URL 时没有列表上下文，隐藏切换按钮，只保留返回列表。
+- CNBlog `body` 在投影里是 JSON 编码字符串（外层引号、`\\n` 和转义引号）；渲染前在 `utils/format.ts` 的 `decodeStoredText` 解一层 JSON，再交给 DOMPurify，避免详情出现 `\"`、`\\n` 字面量。只影响展示，不改 `src/` 投影。
+- 移动端侧栏改成可换行的紧凑平台列表，避免横向滚动把 GitHub 之后的平台藏起来。
+
+### 时间线页面与收藏热力图（2026-11）
+
+- 侧栏在平台列表上方提供“总览”和“时间线”两个平级入口：`/` 是原有看板，`/timeline` 是独立时间线页；active 状态分别判断 `route.name`。
+- `/timeline` 包含热力图和活动动态：
+  - 热力图按自然年渲染，起点是 1 月 1 日所在周的周日，终点是 12 月 31 日所在周的周六，缺数据的日期补 0；顶部 `Select` 可在数据库有数据的年份之间切换，写入 `?year=YYYY`。
+  - 颜色按所选年份非零天数的四分位分 4 档，避免单日大批量数据把其他日期压平。
+  - 点击某一天把 `?day=YYYY-MM-DD` 写入 URL 并重置活动流；再次点击该天或点“清除”回到全部。切年时清除日期；URL 可分享，浏览器后退可恢复筛选。
+  - 活动流按所选年份过滤，每页 30 条，`IntersectionObserver` 在距离底部 400px 时加载下一页；按 `day` 插入日期分隔，显示平台标记、标题、副标题、封面缩略图、时间和动作标签。
+  - 每条活动点击后复用现有 `/t/:table/:pk` 详情页，不需要新的预览路由。
+  - 热力图和列表都使用本机时区日期；时间统一在 SQLite 内转成 epoch 秒，再按 `localtime` 分组。
+- 时间来源只纳入数据库里存有真实保存/收藏时间的 6 个平台：
+
+| 平台 | 来源 | 时间字段 | 显示标签 |
+| --- | --- | --- | --- |
+| Bangumi | `bangumi_collection` | `updated_at`（收藏记录更新时间） | 收藏更新 |
+| 哔哩哔哩 | `bilibili_media` + `bilibili_fav_item` | 同一视频取 `MAX(fav_time)` | 收藏 |
+| 博客园 | `cnblog_bookmark` | `date_added`（无时区，按本机时间解释） | 收藏 |
+| GitHub | `github_star` | `starred_at` | Star |
+| QiReader | `qireader_entry` | `timestamp`（纳秒字符串，QiReader 保存时间） | 稍后读 |
+| 知乎 | `zhihu_content` + `zhihu_collection_item` | 同一内容取 `MAX(created)` | 收藏 |
+
+- QiReader 有一个容易误用的字段：`crawled_at` 是 eto 抓取正文的时间，不是用户保存到稍后读的时间。2026-11-25 修正为使用 QiReader API 的 `timestamp`（`/1e9` 得到 epoch 秒），周末才不再被批量正文抓取填满。
+- Twitter、V2EX、微博、网易云目前只有同步时间（`db_created_at` / `db_updated_at`），加入时间线会让一次同步变成一个虚假的收藏尖峰，因此暂不进入热力图和活动流；它们仍可从侧栏和平台卡片浏览。
+- 后端 `timeline.py` 用静态 SQL 把 6 个来源 `UNION ALL` 成统一列，表不存在时自动跳过该来源；`day` 只做格式/日期校验后绑定参数，`limit` 最大 100。没有新增规范化表，也没有让前端拼接 SQL。
+- CNBlog 的 `date_added` 是无时区文本，SQL 用 `'utc'` 修饰符按服务器本地时间解释，避免上海时区被多加 8 小时。
+
 ### CNBlog 正文缺口排查（2026-11）
 
 - `cnblog_post` 当前 153 行，其中 20 行 `body` 为空；另有 5 条收藏在 `cnblog_post` 里找不到对应记录。
@@ -304,6 +352,18 @@ web/
 - **DEC-016**：深色模式跟随系统，不新增手动切换 — OpenVue Aura 默认使用 `prefers-color-scheme: dark`，自定义 UI 用同一媒体查询和语义色变量即可对齐；手动切换需要额外的持久化和首屏防闪逻辑，等用户明确需要再做。
 - **DEC-017**：表格查询与滚动位置放 `sessionStorage`，不放数据库或后端 — 这是单标签页的浏览状态，刷新/返回时恢复即可；跨标签页共享反而会让两个窗口互相覆盖。URL 继续承载可分享的查询。
 - **DEC-018**：Twitter 媒体从 raw response 读取，不改投影表 — 投影表没有媒体列，但 `twitter_tweet.response_id` 指向包含完整推文的 raw 页面；读取一条 raw body 即可恢复图片/视频，避免为前端展示改 `src/` 的 schema 和重建投影。
+- **DEC-019**：用 `definePreset` 统一 OpenVue 主色，而不是逐个覆盖组件 CSS — Aura 默认 emerald 与自定义 indigo 链接冲突；在主题层改 primary 让按钮、焦点环、分页器和自定义 UI 一次对齐，后续换主题也只需改一处。
+- **DEC-020**：详情页上一条/下一条复用列表页快照和 `QueryRequest`，不新增 neighbor API — 当前页数据已经在浏览器里，越界时一次普通分页查询即可；后端不需要窗口函数、游标或额外的排序语义，过滤/搜索行为与列表完全一致。代价是直接打开详情 URL 时没有上下文。
+- **DEC-021**：长文详情用 680px 阅读列 + 侧栏，不再整页铺满 — 纯堆叠在宽屏上每行过长；固定阅读宽度、正文字号/行距和段落间距比堆组件更能改善可读性，同时把元信息移到侧栏，正文不再被技术字段打断。
+- **DEC-022**：CNBlog 双编码 body 在前端解一层 JSON — 投影层保持原样，避免为显示问题改 `src/` 并重建 153 条投影；`decodeStoredText` 只在字符串以 `"` 开头且 JSON 解析结果为字符串时生效，普通文本和异常数据保持原值。
+- **DEC-023**：总览时间线只纳入有真实收藏/入库时间的平台 — Twitter、V2EX、微博、网易云只有同步时间，混入后一次同步会变成数万条同一日期的“收藏”，热力图失真。宁可少 4 个平台，也不把同步时间伪装成收藏时间；以后 raw 里补上真实时间再扩。
+- **DEC-024**：时间线用后端静态 SQL `UNION ALL`，不建规范化表 — 6 个平台的 SELECT 固定、表不存在自动跳过；新增来源只改一个列表，不改主库 schema。当前 5,382 行上列表查询约 25ms，不值得为单用户引入跨平台 item 表。
+- **DEC-025**：日期筛选进 URL，滚动分页不进 URL — `?day=` 和 `?year=` 是可分享状态且浏览器后退应恢复；已加载页数和滚动位置是当前标签页的临时状态，写进 URL 会产生大量不可分享的历史记录。期望以后像表格一样用 `sessionStorage` 补。
+- **DEC-026**：热力图按非零天数的四分位着色 — 直接用 `count / max` 会让单日尖峰把其余日期压成同一档；分位数能保留日常差异，同时给尖峰最高档。
+- **DEC-027**：时间线复用 `/t/:table/:pk` 详情页 — 不新建弹窗预览或第二套详情渲染；点击后仍可看到正文、来源、媒体和上一条/下一条，代价是离开时间线滚动位置。
+- **DEC-028**：时间线是独立 `/timeline` 页面，不挂在总览底部 — 热力图 + 无限列表本身有独立筛选状态（年份、日期）和很长的滚动区，继续塞在首页会让首页变成两个产品；侧栏提供平级入口，首页只保留一个快捷链接。
+- **DEC-029**：热力图按自然年而不是滚动 53 周 — 用户需要明确选择年份，自然年边界和月份标签比“最近 371 天”更可解释；起始周向前补到周日、结束周向后补到周六，保证 7 行网格。
+- **DEC-030**：QiReader 使用 API `timestamp` 而不是 `crawled_at` — `crawled_at` 是 eto 抓正文的时间，按同步批次分布，会把周末/每天填满；`timestamp` 是 QiReader 的纳秒保存时间（`/1e9`），与用户实际加入稍后读的日期一致。Bangumi 只有 `updated_at`，在标签上明确为“收藏更新”，不当作首次收藏。
 
 ## 备选方案
 
@@ -340,6 +400,16 @@ web/
 - **RISK-018**：抓取正文可能自带内联颜色或白底图片；深色模式下正文外框是深色，但内容内部的作者自定义颜色不受控制。未强制覆盖内联样式，避免破坏原排版。
 - **RISK-019**：表格状态只在当前浏览器标签页内记忆；新标签页、清空站点数据或隐私模式会回到默认视图。滚动位置按“表 + 查询”保存，深页改动数据后可能落在一个略短/略长的位置。
 - **RISK-020**：Twitter 媒体依赖 raw response 仍保留原页面且 `response_id` 未变；重建投影后 id 会指向新响应，通常仍可用。若 raw 被清理或推文在页内结构变化，详情会静默隐藏媒体，正文不受影响。
+- **RISK-021**：直接打开或分享详情 URL 时没有列表页快照，上一条/下一条不显示；从列表进入或刷新过列表后才有。列表数据变化后，快照可能指向已删除的主键，此时只显示“记录不存在”，不会自动修正游标。
+- **RISK-022**：详情切换跨页时使用一次额外查询；快速连点由 `navBusy` 串行化，不会并发翻页。若相邻页在两次请求之间被同步改写，位置数字可能与实际顺序略有偏差。
+- **RISK-023**：视觉层依赖 `color-mix()`、`backdrop-filter` 和动态视口单位 `dvh`；现代 Chrome/Edge/Firefox/Safari 支持，极旧浏览器会退化为普通透明背景或固定高度。
+- **RISK-024**：移动端平台导航换行后约占 158px 高度；10 个平台加 raw 入口在 390px 宽度下为 4 行。平台继续增加时需要在移动端改成抽屉或横向滚动。
+- **RISK-025**：时间线只覆盖 6 个平台；Twitter、V2EX、微博、网易云的收藏/喜欢记录暂时看不到。它们的投影层没有真实收藏时间，只有同步时间，补数据需要在 exporter/raw 层增加时间字段。
+- **RISK-026**：热力图按所选自然年展示；更早/更晚的记录仍可在活动流（全部时间）和平台列表里看到。日期按后端所在机器的本地时区分组，跨时区访问 LAN 服务时可能与浏览器日期相差一天。
+- **RISK-027**：活动流使用 offset 分页；同步任务在两页之间写入新行时，可能出现重复或漏掉一条。当前单用户、数据量 5,382 行，暂不引入游标；以后可改为 `(occurred_at, platform, pk)` 复合游标。
+- **RISK-028**：从活动流打开详情再返回时间线时，页面会重新挂载、只加载第一页并回到热力图顶部；已滚动的页数和位置没有保存。`?year=` / `?day=` 会保留，深滚动位置会丢失。
+- **RISK-029**：CNBlog `date_added` 无时区，按服务器本地时间解释；如果导出机和 Web 服务不在同一时区，日期可能偏移。
+- **RISK-030**：时间线保留真实的批量操作：2025-12-28 有 279 个 B 站收藏集中在 23:19-23:21，2026-04-23 有 97 个 Bangumi 收藏更新集中在 23:06-23:07。这些是收藏/更新记录本身的时间，热力图会显示为尖峰，不是抓取日期错位。
 
 ## 验证方式
 
@@ -355,3 +425,7 @@ web/
 - **TEST-010**：Playwright 冒烟覆盖 Bangumi / Bilibili 照片墙与表格切换、Bangumi facet、CNBlog / QiReader 正文、Twitter / V2EX / 知乎来源、V2EX 回复。
 - **TEST-011**：Playwright 分别在 `colorScheme: dark` 和 `colorScheme: light` 下检查首页、表格、照片墙、详情和 raw 页面，确认页面/表格/文字对比度正常。
 - **TEST-012**：Vitest 覆盖表格状态记忆、Twitter 媒体提取、QiReader 时间单位与隐藏列；Playwright 验证 QiReader 列/时间、页码与滚动恢复、切换平台无白色 loading 遮罩、Twitter 推文图片实际加载（`naturalWidth > 0`）。
+- **TEST-013**：Vitest 覆盖详情页快照的存取、主键查找和上一条/下一条边界（页内切换、跨页 offset、首页/末页停止），以及 CNBlog JSON 字符串解码。
+- **TEST-014**：Playwright 在深色和浅色下检查首页、列表、文章、推文、V2EX 回复、Bilibili 播放器、raw 页面；验证从列表进入详情后 `位置 / 总数` 正确、上一条/下一条跨页、返回列表保留查询、文章段落间距、Twitter 图片、390px 移动端无横向溢出。
+- **TEST-015**：后端 pytest 覆盖时间线的排序/分页、关系去重取最新时间、`day` 过滤与非法日期、热力图按自然年周日对齐/周六收尾和补零、年份列表与非法年份、缺少平台表时返回空列表；Ruff 通过。
+- **TEST-016**：前端 Vitest 覆盖热力图四分位阈值/档位和月份分组；Playwright 验证侧栏总览/时间线双入口、`/timeline` 首屏、年份下拉 16 个年份、切到 2024 后热力图重渲染、日期筛选/清除保留年份、点击活动进入详情、390px 纵向无溢出且热力图可横向滚动。

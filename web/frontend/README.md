@@ -17,14 +17,14 @@ npm run build      # typecheck + 生产构建到 dist/
 ```text
 src/
 ├── api/            fetch client 与类型
-├── components/     PlatformNav、CellValue、PreviewCard、FilterBar、FieldRenderer、JsonTree
+├── components/     PlatformNav、ActivityTimeline、CellValue、PreviewCard、FilterBar、FieldRenderer、JsonTree
 ├── composables/    useSchema（页面级 schema 缓存）
 ├── config/         平台看板、表/字段标签、详情布局、渲染与时间单位覆盖
-├── utils/          主键编解码、时间/数值格式化、HTML/Markdown 清洗、渲染器选择
-└── views/          首页看板、列表、详情、raw run/response 页面
+├── utils/          主键编解码、时间/数值格式化、热力图分档、HTML/Markdown 清洗、渲染器选择
+└── views/          首页看板、时间线、列表、详情、raw run/response 页面
 ```
 
-列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复，`utils/tableState.ts` 另在 `sessionStorage` 按表记住查询和滚动位置，供侧栏切换和详情返回使用。字段名和取值通过 `config/columns.ts` 中文化，行 ID 不进入列表但主键仍用于详情跳转；关联表通过 `config/tables.ts` 的 `relation` 配置批量补全目标标题、作者和发布时间。Bangumi 和 Bilibili 使用 `layout: 'gallery'` 与 `gallery` 配置渲染照片墙，`?view=table` 可切回表格；Bangumi 的 `facets` 驱动收藏状态/条目类型筛选，Bilibili 的 `folders` 配置批量补全收藏夹。详情布局在 `config/details.ts`，由 `DetailView` 按平台渲染正文、封面、播放器、互动数、`lookup` 正文、`sources` 来源、`folders` 收藏夹和 `children` 子记录；Twitter 详情通过 `utils/twitter.ts` 从 raw response 提取图片和视频。HTML/Markdown 一律经 DOMPurify 清洗。自定义 UI 的颜色统一走 `styles/main.css` 的语义变量，跟随 `prefers-color-scheme` 切换深色/浅色模式。
+列表页使用 OpenVue DataTable 的 lazy 模式，分页/排序/搜索/过滤全部交给后端；查询条件同步到 URL，刷新与浏览器前进/后退可恢复，`utils/tableState.ts` 另在 `sessionStorage` 按表记住查询、滚动位置和详情页快照，供侧栏切换、详情返回和上一条/下一条使用。字段名和取值通过 `config/columns.ts` 中文化，行 ID 不进入列表但主键仍用于详情跳转；关联表通过 `config/tables.ts` 的 `relation` 配置批量补全目标标题、作者和发布时间。Bangumi 和 Bilibili 使用 `layout: 'gallery'` 与 `gallery` 配置渲染照片墙，`?view=table` 可切回表格；Bangumi 的 `facets` 驱动收藏状态/条目类型筛选，Bilibili 的 `folders` 配置批量补全收藏夹。独立 `/timeline` 页面的 `components/ActivityTimeline.vue` 读取 `/api/timeline` 和 `/api/timeline/heatmap`：年份下拉（`?year=`）重渲染当年热力图并过滤活动流，按天筛选（`?day=`），活动流每页 30 条并用 `IntersectionObserver` 自动加载，点击进入 `/t/:table/:pk` 详情。详情布局在 `config/details.ts`，由 `DetailView` 按平台渲染吸顶工具栏、hero、正文、封面、播放器、互动数、`lookup` 正文、`sources` 来源、`folders` 收藏夹和 `children` 子记录；正文使用 680px 阅读列和统一排版，元信息移到侧栏，Twitter 详情通过 `utils/twitter.ts` 从 raw response 提取图片和视频。HTML/Markdown 一律经 DOMPurify 清洗。自定义 UI 的颜色统一走 `styles/main.css` 的语义变量，跟随 `prefers-color-scheme` 切换深色/浅色模式；`main.ts` 用 `definePreset` 将 Aura 主色固定为 indigo，与自定义链接和标记保持一致。
 
 ## 依赖与版本策略
 

@@ -79,6 +79,23 @@ export function formatCellValue(table: string, column: ColumnMeta, value: unknow
   return String(value)
 }
 
+/**
+ * Some projection columns store a JSON-encoded string (CNBlog body is the
+ * common one). Decode exactly one layer for display; plain text and malformed
+ * JSON stay untouched.
+ */
+export function decodeStoredText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value !== 'string') return JSON.stringify(value) ?? ''
+  if (!value.startsWith('"')) return value
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return typeof parsed === 'string' ? parsed : value
+  } catch {
+    return value
+  }
+}
+
 export function stripHtml(text: string): string {
   return text
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')

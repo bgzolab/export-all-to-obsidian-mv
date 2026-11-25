@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from . import db, query, raw, schema
+from . import db, query, raw, schema, timeline
 from .config import CORS_ORIGINS, get_frontend_dist
 from .models import QueryRequest, RowRequest
 
@@ -55,6 +55,26 @@ def get_row(table: str, request: RowRequest, connection: db.DbConnection) -> dic
     if result is None:
         raise HTTPException(status_code=404, detail='row not found')
     return result
+
+
+@app.get('/api/timeline')
+def get_timeline(
+    connection: db.DbConnection,
+    day: str | None = None,
+    year: int | None = None,
+    limit: int = 30,
+    offset: int = 0,
+) -> dict:
+    """Newest-first collected items for the timeline page."""
+    return timeline.list_timeline(
+        connection, day=day, year=year, limit=limit, offset=offset
+    )
+
+
+@app.get('/api/timeline/heatmap')
+def get_timeline_heatmap(connection: db.DbConnection, year: int | None = None) -> dict:
+    """Daily collection counts for one calendar year."""
+    return timeline.heatmap(connection, year=year)
 
 
 @app.get('/api/runs')

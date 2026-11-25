@@ -14,7 +14,7 @@ import {
   timeUnitFor,
 } from '@/utils/renderers'
 import { durationUnitFor } from '@/config/columns'
-import { formatDuration } from '@/utils/format'
+import { decodeStoredText, formatDuration } from '@/utils/format'
 import { formatTime } from '@/utils/time'
 
 const props = defineProps<{
@@ -28,11 +28,7 @@ const props = defineProps<{
 
 const kind = computed(() => renderKindFor(props.table, props.column))
 
-const text = computed(() => {
-  const value = props.value
-  if (value === null || value === undefined) return ''
-  return typeof value === 'object' ? JSON.stringify(value) : String(value)
-})
+const text = computed(() => decodeStoredText(props.value))
 
 const html = computed(() => (kind.value === 'html' ? sanitizeHtml(text.value) : ''))
 const markdown = computed(() =>
@@ -129,20 +125,173 @@ const booleanValue = computed(() => Boolean(props.value))
 }
 
 .rich {
-  max-width: 900px;
-  color: var(--text);
-  line-height: 1.6;
-  font-size: 14px;
+  color: var(--text-reading);
+  font-size: 16px;
+  line-height: 1.85;
   overflow-wrap: anywhere;
+}
+
+/*
+ * Scraped article text often uses one long block of spans with real newlines
+ * instead of <p> elements; the section rule below keeps those paragraphs apart.
+ */
+
+.rich :deep(p) {
+  margin: 0 0 1.15em;
+}
+
+/* Blogger/QiReader paragraph spans sit in one <section> per paragraph. */
+.rich :deep(section) {
+  margin: 0 0 1.15em;
+}
+
+.rich :deep(h1),
+.rich :deep(h2),
+.rich :deep(h3),
+.rich :deep(h4),
+.rich :deep(h5),
+.rich :deep(h6) {
+  margin: 1.7em 0 0.65em;
+  color: var(--text);
+  font-weight: 650;
+  line-height: 1.38;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.rich :deep(h1) {
+  font-size: 1.65em;
+}
+
+.rich :deep(h2) {
+  font-size: 1.42em;
+}
+
+.rich :deep(h3) {
+  font-size: 1.2em;
+}
+
+.rich :deep(h4),
+.rich :deep(h5),
+.rich :deep(h6) {
+  font-size: 1.05em;
+}
+
+.rich :deep(*:first-child) {
+  margin-top: 0;
+}
+
+.rich :deep(*:last-child) {
+  margin-bottom: 0;
+}
+
+.rich :deep(a) {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 38%, transparent);
+  text-underline-offset: 3px;
+}
+
+.rich :deep(a:hover) {
+  text-decoration-color: var(--primary);
 }
 
 .rich :deep(img) {
   max-width: 100%;
   height: auto;
+  border-radius: 10px;
+  background: var(--surface-sunken);
 }
 
-.rich :deep(a) {
-  color: var(--primary-text);
+.rich :deep(figure) {
+  margin: 1.5em 0;
+}
+
+.rich :deep(figcaption) {
+  margin-top: 6px;
+  color: var(--muted-light);
+  font-size: 12px;
+  text-align: center;
+}
+
+.rich :deep(blockquote) {
+  margin: 1.4em 0;
+  padding: 4px 18px;
+  border-left: 3px solid var(--primary-border);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.rich :deep(blockquote p:last-child) {
+  margin-bottom: 0;
+}
+
+.rich :deep(pre) {
+  margin: 1.4em 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.rich :deep(code) {
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.rich :deep(pre code) {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.rich :deep(ul),
+.rich :deep(ol) {
+  margin: 0 0 1.15em;
+  padding-left: 1.5em;
+}
+
+.rich :deep(li) {
+  margin: 0.35em 0;
+}
+
+.rich :deep(li::marker) {
+  color: var(--muted-light);
+}
+
+.rich :deep(hr) {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.rich :deep(table) {
+  width: 100%;
+  margin: 1.4em 0;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rich :deep(th),
+.rich :deep(td) {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.rich :deep(th) {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .field-image {
@@ -186,6 +335,9 @@ const booleanValue = computed(() => Boolean(props.value))
 }
 
 .text {
+  color: var(--text-reading);
+  font-size: 15px;
+  line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

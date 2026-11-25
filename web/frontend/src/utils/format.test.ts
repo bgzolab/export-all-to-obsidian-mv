@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ColumnMeta } from '@/api/types'
-import { formatCellValue, formatCompact, formatDuration, formatRelative, stripHtml } from './format'
+import {
+  decodeStoredText,
+  formatCellValue,
+  formatCompact,
+  formatDuration,
+  formatRelative,
+  stripHtml,
+} from './format'
 
 function column(name: string, overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return { name, type: 'TEXT', json: false, ...overrides }
@@ -42,6 +49,16 @@ describe('format helpers', () => {
 
   it('strips markup for previews', () => {
     expect(stripHtml('<p>Hello&nbsp;<strong>world</strong></p>')).toBe('Hello world')
+  })
+
+  it('decodes one JSON string layer from stored text', () => {
+    expect(decodeStoredText('"<p class=\\"x\\">hi</p>\\n<p>next</p>"')).toBe(
+      '<p class="x">hi</p>\n<p>next</p>',
+    )
+    expect(decodeStoredText('plain text')).toBe('plain text')
+    expect(decodeStoredText('not "json"')).toBe('not "json"')
+    expect(decodeStoredText(42)).toBe('42')
+    expect(decodeStoredText(null)).toBe('')
   })
 
   it('uses a relative label for recent sync times', () => {

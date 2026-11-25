@@ -45,6 +45,7 @@ import { formatNumber } from '@/utils/format'
 import { relationDisplay, relationFieldColumn } from '@/utils/relation'
 import { encodePk } from '@/utils/pk'
 import {
+  rememberDetailPage,
   rememberTableQuery,
   rememberTableScroll,
   rememberedTableQuery,
@@ -516,13 +517,25 @@ function folderEntries(row: Record<string, unknown>): FolderEntry[] {
   return folders.value.get(String(key)) ?? []
 }
 
+function primaryKeyOf(row: Record<string, unknown>): Record<string, unknown> | null {
+  const meta = table.value
+  if (!meta) return null
+  const pk: Record<string, unknown> = {}
+  for (const name of meta.primary_key) {
+    const value = row[name]
+    if (value === undefined) return null
+    pk[name] = value
+  }
+  return pk
+}
+
 async function load() {
   if (!table.value || !selectedColumns.value.length) return
   const sequence = ++requestSequence
   loading.value = true
   loadError.value = ''
   try {
-    const response = await api.queryTable(tableName.value, {
+    const request = {
       columns: requestColumns.value,
       filters: activeFilters.value,
       search: search.value || undefined,
@@ -530,11 +543,21 @@ async function load() {
       sort: sortSpecs.value,
       limit: limit.value,
       offset: offset.value,
-    })
+    }
+    const response = await api.queryTable(tableName.value, request)
     if (sequence !== requestSequence) return
     rows.value = response.rows
     total.value = response.total
     loaded.value = true
+    // A detail page needs the visible page and its query for prev/next; keep
+    // only primary keys so the session entry stays small.
+    rememberDetailPage(tableName.value, {
+      request,
+      total: response.total,
+      pks: response.rows
+        .map(primaryKeyOf)
+        .filter((pk): pk is Record<string, unknown> => Boolean(pk)),
+    })
     void loadRelation(response.rows, sequence)
     void loadFolders(response.rows, sequence)
     void loadFacetCounts()
@@ -661,9 +684,15 @@ function openRow(event: DataTableRowClickEvent) {
           <span>{{ platformLabel(table.platform) }}</span>
         </p>
         <div class="title-row">
-          <div>
-            <h1>{{ tableLabel(table.name) }}</h1>
-            <p class="description">{{ tableDescription(table.name) }}</p>
+          <div class="title-main">
+            <span
+              class="platform-mark sm"
+              :style="{ background: platform?.color }"
+            >{{ platform?.mark }}</span>
+            <div>
+              <h1>{{ tableLabel(table.name) }}</h1>
+              <p class="description">{{ tableDescription(table.name) }}</p>
+            </div>
           </div>
           <span class="count-pill">
             <template v-if="loaded">{{ formatNumber(total) }} {{ tableCountUnit(table.name) }}</template>
@@ -680,65 +709,68 @@ function openRow(event: DataTableRowClickEvent) {
         @select="selectFacet"
       />
 
-      <form class="toolbar" @submit.prevent="submitSearch">
-        <InputText
-          v-model="searchDraft"
-          :placeholder="searchPlaceholder"
-          size="small"
-          aria-label="搜索"
-        />
-        <Button type="submit" label="搜索" size="small" />
-        <Button
-          v-if="search"
-          type="button"
-          label="清空搜索"
-          size="small"
-          severity="secondary"
-          text
-          @click="clearSearch"
-        />
-        <span v-if="layout === 'gallery'" class="view-toggle" role="group" aria-label="列表形态">
+      <div class="toolbar-panel">
+        <form class="toolbar" @submit.prevent="submitSearch">
+          <InputText
+            v-model="searchDraft"
+            :placeholder="searchPlaceholder"
+            size="small"
+            class="search-input"
+            aria-label="搜索"
+          />
+          <Button type="submit" label="搜索" size="small" />
+          <Button
+            v-if="search"
+            type="button"
+            label="清空搜索"
+            size="small"
+            severity="secondary"
+            text
+            @click="clearSearch"
+          />
+          <span v-if="layout === 'gallery'" class="view-toggle" role="group" aria-label="列表形态">
+            <Button
+              type="button"
+              label="照片墙"
+              size="small"
+              :severity="viewMode === 'gallery' ? 'primary' : 'secondary'"
+              :outlined="viewMode !== 'gallery'"
+              @click="setView('gallery')"
+            />
+            <Button
+              type="button"
+              label="表格"
+              size="small"
+              :severity="viewMode === 'table' ? 'primary' : 'secondary'"
+              :outlined="viewMode !== 'table'"
+              @click="setView('table')"
+            />
+          </span>
+          <span class="toolbar-spacer" />
           <Button
             type="button"
-            label="照片墙"
+            :label="filtersOpen ? '收起筛选' : `筛选${filters.length ? ` (${filters.length})` : ''}`"
             size="small"
-            :severity="viewMode === 'gallery' ? 'primary' : 'secondary'"
-            :outlined="viewMode !== 'gallery'"
-            @click="setView('gallery')"
+            severity="secondary"
+            outlined
+            @click="filtersOpen = !filtersOpen"
           />
-          <Button
-            type="button"
-            label="表格"
+          <MultiSelect
+            v-if="viewMode === 'table' && visibleColumns.length > 2"
+            :model-value="selectedColumns"
+            :options="columnOptions"
+            option-label="label"
+            option-value="value"
+            selected-items-label="{0} 列已选"
+            placeholder="显示列"
+            :max-selected-labels="2"
+            display="chip"
             size="small"
-            :severity="viewMode === 'table' ? 'primary' : 'secondary'"
-            :outlined="viewMode !== 'table'"
-            @click="setView('table')"
+            aria-label="显示列"
+            @update:model-value="changeColumns"
           />
-        </span>
-        <span class="toolbar-spacer" />
-        <Button
-          type="button"
-          :label="filtersOpen ? '收起筛选' : `筛选${filters.length ? ` (${filters.length})` : ''}`"
-          size="small"
-          severity="secondary"
-          outlined
-          @click="filtersOpen = !filtersOpen"
-        />
-        <MultiSelect
-          v-if="viewMode === 'table' && visibleColumns.length > 2"
-          :model-value="selectedColumns"
-          :options="columnOptions"
-          option-label="label"
-          option-value="value"
-          selected-items-label="{0} 列已选"
-          placeholder="显示列"
-          :max-selected-labels="2"
-          display="chip"
-          size="small"
-          aria-label="显示列"
-          @update:model-value="changeColumns"
-        />
-      </form>
+        </form>
+      </div>
 
       <FilterBar
         v-if="filtersOpen"
@@ -868,13 +900,13 @@ function openRow(event: DataTableRowClickEvent) {
 
 .view-header {
   flex: none;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .breadcrumb {
   display: flex;
   gap: 7px;
-  margin: 0 0 6px;
+  margin: 0 0 7px;
   color: var(--muted-light);
   font-size: 12px;
 }
@@ -895,30 +927,57 @@ function openRow(event: DataTableRowClickEvent) {
   gap: 16px;
 }
 
+.title-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.title-main h1 {
+  margin-bottom: 3px;
+}
+
 .description {
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .count-pill {
   flex: none;
-  padding: 5px 10px;
+  margin-top: 4px;
+  padding: 6px 11px;
+  border: 1px solid var(--primary-border);
   border-radius: 999px;
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.toolbar {
+.toolbar-panel {
   flex: none;
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+}
+
+.search-input {
+  width: min(320px, 100%);
 }
 
 .toolbar-spacer {
@@ -938,7 +997,8 @@ function openRow(event: DataTableRowClickEvent) {
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
@@ -1011,8 +1071,9 @@ function openRow(event: DataTableRowClickEvent) {
   min-height: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 4px 10px 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 2px 10px 0;
   overflow: hidden;
 }
 

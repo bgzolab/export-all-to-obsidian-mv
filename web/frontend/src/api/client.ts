@@ -7,6 +7,8 @@ import type {
   RunDetailResponse,
   RunsResponse,
   SchemaResponse,
+  TimelineHeatmapResponse,
+  TimelineResponse,
 } from './types'
 
 /**
@@ -58,6 +60,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ pk }),
     }),
+  timeline: (params: { day?: string; year?: number; limit?: number; offset?: number }) =>
+    request<TimelineResponse>(`/timeline${queryString(params)}`),
+  timelineHeatmap: (params: { year?: number } = {}) =>
+    request<TimelineHeatmapResponse>(`/timeline/heatmap${queryString(params)}`),
   runs: (params: { platform?: string; status?: string; limit?: number; offset?: number }) =>
     request<RunsResponse>(`/runs${queryString(params)}`),
   run: (id: number | string) => request<RunDetailResponse>(`/runs/${id}`),
