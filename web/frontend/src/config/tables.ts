@@ -359,8 +359,8 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
   twitter_tweet: {
     label: 'Twitter 推文',
     listColumns: [
-      'created_at',
       'full_text',
+      'created_at',
       'favorite_count',
       'retweet_count',
       'reply_count',
@@ -407,8 +407,8 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
   weibo_post: {
     label: '微博',
     listColumns: [
-      'created_at',
       'text',
+      'created_at',
       'reposts_count',
       'comments_count',
       'attitudes_count',

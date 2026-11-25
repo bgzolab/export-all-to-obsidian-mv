@@ -70,6 +70,27 @@ describe('table display config', () => {
     expect(listColumnsFor(table())).toEqual(columns)
   })
 
+  it('puts the post body first for Twitter and Weibo', () => {
+    const twitter = table({
+      name: 'twitter_tweet',
+      columns: [
+        { name: 'tweet_id', type: 'TEXT', json: false, pk: 1 },
+        { name: 'created_at', type: 'TEXT', json: false },
+        { name: 'full_text', type: 'TEXT', json: false },
+      ],
+    })
+    const weibo = table({
+      name: 'weibo_post',
+      columns: [
+        { name: 'id', type: 'INTEGER', json: false, pk: 1 },
+        { name: 'created_at', type: 'TEXT', json: false },
+        { name: 'text', type: 'TEXT', json: false },
+      ],
+    })
+    expect(listColumnsFor(twitter)[0]).toBe('full_text')
+    expect(listColumnsFor(weibo)[0]).toBe('text')
+  })
+
   it('keeps ids out of configured list columns', () => {
     const zhihu = table({
       name: 'zhihu_content',
