@@ -2,6 +2,16 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import bangumiIcon from '@/assets/platforms/bangumi.svg?url'
+import bilibiliIcon from '@/assets/platforms/bilibili.svg?url'
+import cnblogsIcon from '@/assets/platforms/cnblogs.svg?url'
+import githubIcon from '@/assets/platforms/github.svg?url'
+import neteaseIcon from '@/assets/platforms/netease.svg?url'
+import qireaderIcon from '@/assets/platforms/qireader.svg?url'
+import twitterIcon from '@/assets/platforms/twitter.svg?url'
+import v2exIcon from '@/assets/platforms/v2ex.svg?url'
+import weiboIcon from '@/assets/platforms/weibo.svg?url'
+import zhihuIcon from '@/assets/platforms/zhihu.svg?url'
 import type { SchemaResponse } from '@/api/types'
 import { formatNumber } from '@/utils/format'
 import {
@@ -10,6 +20,19 @@ import {
   platformKeys,
   platformLabel,
 } from '@/config/platforms'
+
+const ICONS: Record<string, string> = {
+  bangumi: bangumiIcon,
+  bilibili: bilibiliIcon,
+  cnblog: cnblogsIcon,
+  github: githubIcon,
+  netease: neteaseIcon,
+  qireader: qireaderIcon,
+  twitter: twitterIcon,
+  v2ex: v2exIcon,
+  weibo: weiboIcon,
+  zhihu: zhihuIcon,
+}
 
 const props = defineProps<{ schema: SchemaResponse }>()
 const route = useRoute()
@@ -37,6 +60,7 @@ const entries = computed(() =>
       key,
       label: platformLabel(key),
       mark: config?.mark ?? key.slice(0, 1).toUpperCase(),
+      icon: ICONS[key],
       color: config?.color ?? 'var(--text-tertiary)',
       table: config?.primaryTable ?? key,
       count: counts.value.get(key) ?? 0,
@@ -48,6 +72,10 @@ const rawCount = computed(
   () =>
     props.schema.tables.find((table) => table.name === 'sync_response')?.row_count ?? 0,
 )
+
+function iconStyle(url: string) {
+  return { '--icon-url': `url("${url}")` }
+}
 
 const rawActive = computed(() => route.path.startsWith('/raw'))
 </script>
@@ -83,7 +111,15 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
           class="nav-item"
           :class="{ active: currentPlatform === entry.key }"
         >
-          <span class="nav-mark" :style="{ background: entry.color }">{{ entry.mark }}</span>
+          <span class="nav-mark" :style="{ background: entry.color }">
+            <span
+              v-if="entry.icon"
+              class="nav-glyph"
+              aria-hidden="true"
+              :style="iconStyle(entry.icon)"
+            />
+            <template v-else>{{ entry.mark }}</template>
+          </span>
           <span class="nav-label">{{ entry.label }}</span>
           <span class="nav-count">{{ formatNumber(entry.count) }}</span>
         </RouterLink>
@@ -172,6 +208,20 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
   color: var(--muted);
 }
 
+.nav-glyph {
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-url);
+  mask-image: var(--icon-url);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .nav-mark.overview {
   background: linear-gradient(145deg, #818cf8, #4f46e5);
 }
@@ -240,6 +290,11 @@ const rawActive = computed(() => route.path.startsWith('/raw'))
     height: 20px;
     border-radius: 6px;
     font-size: 10px;
+  }
+
+  .nav-glyph {
+    width: 13px;
+    height: 13px;
   }
 
   .nav-label {
