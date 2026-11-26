@@ -994,9 +994,9 @@ WHERE <natural key> = ?;
 顶层 flag，和 `--db` / `--cookies-file` 一样放在子命令前：
 
 ```shell
-eto --db-only bangumi -s 2 -c 3
-eto --db-only github
-eto --db-only v2ex
+ownlog --db-only bangumi -s 2 -c 3
+ownlog --db-only github
+ownlog --db-only v2ex
 ```
 
 行为：
@@ -1007,7 +1007,7 @@ eto --db-only v2ex
 - 抓取结束后调用 `rebuild_platform`，把该平台 raw 投影到第二层。
 - 平台还没有投影解析器时：raw 照常入库，打印“projection not implemented”，退出 0。
 - 投影失败：标记当前 run 为 `partial`，命令返回非零；raw 已保存，可重新执行
-  `eto db rebuild <platform>`。
+  `ownlog db rebuild <platform>`。
 - `--prefix` 在 db-only 下无意义；`--force` 关闭详情剪枝，重新抓取已存在的详情/辅助数据。
   `--index-file` 与 `--db-only` 同时出现直接报错。
 - `--max-pages` 等抓取范围参数仍然有效。
@@ -1076,7 +1076,7 @@ v1 不删除。以后实现时不需要新增列，用 `response_id` 回查即�
 2. 更新 `tests/test_db_schema.py` 的 `user_version` 断言（当前为 7）；增加建表、JSON 约束、
    外键约束测试。
 3. pilot：Bangumi 解析器 + `rebuild_platform` + 幂等测试。
-4. CLI：`eto --db data/eto.db db rebuild bangumi`，输出处理响应数和行数。
+4. CLI：`ownlog --db data/eto.db db rebuild bangumi`，输出处理响应数和行数。
 5. 其余平台一次一个：解析器 + 测试，不改表结构。
 6. 全部完成后更新 `AGENTS.md` / `README.md` 的数据流说明。
 

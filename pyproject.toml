@@ -1,7 +1,7 @@
 [project]
-name = "export_to_obsidian"
+name = "ownlog"
 version = "0.3.26"
-description = "A tool to export all you need to obsidian"
+description = "A personal digital-life tracker: export your content to local Markdown and SQLite"
 authors = [
     {name = "hx",email = "im@bgzo.cc"}
 ]
@@ -22,7 +22,7 @@ dependencies = [
 
 
 [project.urls]
-"Repository" = "https://github.com/bGZo/playground/tree/2025/07/export-to-obsidian"
+"Repository" = "https://github.com/bgzolab/ownlog"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -35,7 +35,9 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-eto="export_to_obsidian:eto"
+ownlog="ownlog:ownlog"
+# 兼容旧命令名，后续版本移除
+eto="ownlog:ownlog"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.17.4"

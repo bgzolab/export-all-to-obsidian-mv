@@ -5,8 +5,8 @@
 ## 用法
 
 ```shell
-eto [全局参数] v2ex -o OUTPUT [--force]
-eto [全局参数] --db-only v2ex [--tipped] [--force]
+ownlog [全局参数] v2ex -o OUTPUT [--force]
+ownlog [全局参数] --db-only v2ex [--tipped] [--force]
 ```
 
 ## 参数
@@ -75,10 +75,10 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto v2ex -o output/v2ex
-eto --db-only v2ex
-eto --db-only v2ex --tipped
-eto --db-only v2ex --tipped --force
+ownlog v2ex -o output/v2ex
+ownlog --db-only v2ex
+ownlog --db-only v2ex --tipped
+ownlog --db-only v2ex --tipped --force
 ```
 
 [返回命令索引](./README.md)

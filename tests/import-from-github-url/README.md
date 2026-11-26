@@ -34,7 +34,7 @@ options:
                         Path to the generated index Markdown file.
   --report-file REPORT_FILE
                         Path to the JSON import report.
-  --prefix PREFIX       Output filename prefix, aligned with eto --prefix.
+  --prefix PREFIX       Output filename prefix, aligned with ownlog --prefix.
   --force               Overwrite existing output files.
   --limit LIMIT         Only process the first N distinct repository URLs.
   --timeout TIMEOUT     Per-request timeout in seconds.

@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] github -t TEMPLATE -o OUTPUT [--force]
+ownlog [全局参数] github -t TEMPLATE -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -71,20 +71,20 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto --index-file output/index/export-index.md \
+ownlog --index-file output/index/export-index.md \
   github -t config/template/github.md -o output/github
 ```
 
 关闭文件名前缀：
 
 ```shell
-eto --prefix "" github -t config/template/github.md -o output/github
+ownlog --prefix "" github -t config/template/github.md -o output/github
 ```
 
 强制重新导出：
 
 ```shell
-eto github -t config/template/github.md -o output/github --force
+ownlog github -t config/template/github.md -o output/github --force
 ```
 
 [返回命令索引](./README.md)

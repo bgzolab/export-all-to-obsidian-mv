@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--prefix',
         default='',
-        help='Output filename prefix, aligned with eto --prefix.',
+        help='Output filename prefix, aligned with ownlog --prefix.',
     )
     parser.add_argument(
         '--force',
@@ -131,7 +131,7 @@ def build_session() -> requests.Session:
         {
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
-            'User-Agent': 'export-to-obsidian-import-script',
+            'User-Agent': 'ownlog-import-script',
         },
     )
 

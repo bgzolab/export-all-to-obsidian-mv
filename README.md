@@ -1,14 +1,16 @@
-# Export your data into Obsidian
+# ownlog
 
-> Your data is your asset, you own it forever. 
+> Your data is your asset, you own it forever.
 
-This tool exports your social media data to Obsidian with markdown files.
+A personal digital-life tracker: pull your saved content from many platforms into local
+Markdown files, and keep every raw API response in SQLite so you can rebuild and browse it
+later.
 
 - Export data from many sites into local Markdown files.
 - Keep one simple CLI for all modules.
 - Provide an optional index file in Markdown.
 - Keep every API response in SQLite and rebuild per-platform projection tables from it
-  (`--db-only` / `eto db rebuild <platform>`).
+  (`--db-only` / `ownlog db rebuild <platform>`).
 
 Now this tool had supported following modules:
 
@@ -28,7 +30,7 @@ Now this tool had supported following modules:
 You can install from PyPI:
 
 ```shell
-pipx install export_to_obsidian
+pipx install ownlog
 ```
 
 Or install from this repo:
@@ -56,40 +58,40 @@ Full command reference lives in [docs/usages](./docs/usages/README.md). It cover
 A typical call looks like:
 
 ```shell
-eto --index-file output/index/export-index.md zhihu -c your-collection-id -o output/zhihu
+ownlog --index-file output/index/export-index.md zhihu -c your-collection-id -o output/zhihu
 ```
 
 Store only the raw responses and projection tables, without writing Markdown:
 
 ```shell
-eto --db-only zhihu -c your-collection-id
+ownlog --db-only zhihu -c your-collection-id
 ```
 
 Ingest X bookmarks into the database (incremental by default, `--full` to resume a full backfill):
 
 ```shell
-eto --db-only twitter --bookmarks
+ownlog --db-only twitter --bookmarks
 ```
 
 Ingest NetEase playlists and recent listening history (database only):
 
 ```shell
-eto --cookies-file ./cookies.txt --db-only netease
+ownlog --cookies-file ./cookies.txt --db-only netease
 ```
 
 Ingest V2EX topics you sent thanks for (tipped) into the database:
 
 ```shell
-eto --db-only v2ex --tipped
+ownlog --db-only v2ex --tipped
 ```
 
 Rebuild a platform's projection from existing raw responses:
 
 ```shell
-eto db rebuild zhihu
+ownlog db rebuild zhihu
 ```
 
-Run `eto --help` or `eto <command> --help` for the built-in help.
+Run `ownlog --help` or `ownlog <command> --help` for the built-in help.
 
 ## Testing
 
@@ -124,8 +126,8 @@ Don't forget to give the project a star! Thanks again!
 
 Top contributors:
 
-<a href="https://github.com/bGZo/playground/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=bGZo/playground" alt="contrib.rocks image" />
+<a href="https://github.com/bgzolab/ownlog/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=bgzolab/ownlog" alt="contrib.rocks image" />
 </a>
 
 ## License

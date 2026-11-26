@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] import-markdown PATH
+ownlog [全局参数] import-markdown PATH
 ```
 
 ## 参数
@@ -26,7 +26,7 @@ eto [全局参数] import-markdown PATH
 使用全局 `--db` 指定数据库，默认 `data/eto.db`。
 
 ```shell
-eto --db ./data/eto.db import-markdown ./output
+ownlog --db ./data/eto.db import-markdown ./output
 ```
 
 `--index-file`、`--prefix` 和 `--cookies-file` 对该命令没有作用。
@@ -34,7 +34,7 @@ eto --db ./data/eto.db import-markdown ./output
 ## 示例
 
 ```shell
-eto --db ./data/eto.db import-markdown ./output
+ownlog --db ./data/eto.db import-markdown ./output
 ```
 
 输出示例：

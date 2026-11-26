@@ -15,7 +15,7 @@ from . import db, query, raw, schema, timeline
 from .config import CORS_ORIGINS, get_frontend_dist
 from .models import QueryRequest, RowRequest
 
-app = FastAPI(title='eto data browser', version='0.1.0')
+app = FastAPI(title='ownlog data browser', version='0.1.0')
 
 # Only the Vite dev server is cross-origin; production is served from this same
 # process. Keeping the explicit list avoids the wildcard CORS trap.

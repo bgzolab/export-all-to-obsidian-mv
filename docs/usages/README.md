@@ -1,9 +1,9 @@
 # 命令用法
 
-本目录按子命令整理 `eto` 的用法。全局参数必须写在子命令之前：
+本目录按子命令整理 `ownlog` 的用法。全局参数必须写在子命令之前：
 
 ```shell
-eto [全局参数] <命令> [命令参数]
+ownlog [全局参数] <命令> [命令参数]
 ```
 
 安装和加载 `.env` 的步骤见仓库根目录的 [README](../../README.md#quick-start)。
@@ -21,10 +21,10 @@ eto [全局参数] <命令> [命令参数]
 `--cookies-file` 优先于环境变量 `COOKIES`。`--index-file`、`--prefix`、`--cookies-file`、`--db` 和 `--db-only` 都只能放在子命令前面。`--index-file` 与 `--db-only` 互斥。
 
 ```shell
-eto --prefix "" github -t config/template/github.md -o output/github
-eto --cookies-file ./cookies.txt zhihu -c your-collection-id -o output/zhihu
-eto --index-file output/index/export-index.md --db ./data/eto.db weibo -u your-user-id -o output/weibo
-eto --db-only bangumi -s 2 -c 3
+ownlog --prefix "" github -t config/template/github.md -o output/github
+ownlog --cookies-file ./cookies.txt zhihu -c your-collection-id -o output/zhihu
+ownlog --index-file output/index/export-index.md --db ./data/eto.db weibo -u your-user-id -o output/weibo
+ownlog --db-only bangumi -s 2 -c 3
 ```
 
 ## 环境变量
@@ -105,7 +105,7 @@ eto --db-only bangumi -s 2 -c 3
 每次 API 响应和 `import-markdown` 导入的文件都会追加到 SQLite 数据库。默认路径是当前目录下的 `data/eto.db`，可用 `--db` 修改。
 
 ```shell
-eto --db ./data/eto.db zhihu -c your-collection-id -o output/zhihu
+ownlog --db ./data/eto.db zhihu -c your-collection-id -o output/zhihu
 ```
 
 数据库只增不改。Cookie、Authorization、X-CSRF-Token、X-API-Key 等凭证头会被脱敏，但 URL 和响应正文仍可能包含敏感数据，请把数据库当作凭证文件保管，不要提交到版本库。
@@ -124,13 +124,13 @@ eto --db ./data/eto.db zhihu -c your-collection-id -o output/zhihu
 - 抓取结束后在同一 `sync_run` 内重建该平台的投影表。
 - 传输错误和非 200 响应在重建时跳过并计数；200 响应解析失败或违反约束仍会整体回滚。
 - 投影失败时本次 run 标记为 `partial`，命令非零退出；raw 已保存，可稍后执行
-  `eto db rebuild <platform>`。
+  `ownlog db rebuild <platform>`。
 
 ```shell
-eto --db-only github
-eto --db-only v2ex
-eto --db-only twitter --max-pages 10
-eto --cookies-file ./cookies.txt --db-only netease
+ownlog --db-only github
+ownlog --db-only v2ex
+ownlog --db-only twitter --max-pages 10
+ownlog --cookies-file ./cookies.txt --db-only netease
 ```
 
 `netease` 只支持 db-only：它抓取歌单与听歌记录并写投影表，不生成 Markdown。

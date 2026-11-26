@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] qireader -t TAG -o OUTPUT [--force]
+ownlog [全局参数] qireader -t TAG -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -38,7 +38,7 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto qireader -t tag-xxxxxxxx -o output/qireader
+ownlog qireader -t tag-xxxxxxxx -o output/qireader
 ```
 
 [返回命令索引](./README.md)

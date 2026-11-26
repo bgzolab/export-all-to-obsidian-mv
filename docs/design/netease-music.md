@@ -27,11 +27,11 @@ Issue #8 给出的是 `https://music.163.com/#/user/songs/rank?id=xxx`，也就�
 
 目标：
 
-- 新增 `eto --db-only netease`，抓取当前登录账号的自建歌单（含“我喜欢的音乐”）并落库。
+- 新增 `ownlog --db-only netease`，抓取当前登录账号的自建歌单（含“我喜欢的音乐”）并落库。
 - 歌曲库拆成 `netease_song`、`netease_playlist`、`netease_playlist_song` 三张投影表。
 - 最近播放写入独立的 `netease_play_record`，保存歌曲快照，不写 `netease_song`，不设外键。
 - 周榜/总榜写入 raw（`netease.play.rank.week` / `netease.play.rank.all`），未来用 Python 从 raw 读取。
-- 所有响应仍写入 `sync_run` / `sync_response`，支持 `eto db rebuild netease` 幂等重建。
+- 所有响应仍写入 `sync_run` / `sync_response`，支持 `ownlog db rebuild netease` 幂等重建。
 
 非目标：
 
@@ -45,7 +45,7 @@ Issue #8 给出的是 `https://music.163.com/#/user/songs/rank?id=xxx`，也就�
 ## 范围
 
 - 包含：
-  - `eto --db-only netease [--uid UID] [--force]`。
+  - `ownlog --db-only netease [--uid UID] [--force]`。
   - 网易云 weapi 客户端与 `pycryptodome` 加密依赖。
   - 自建歌单列表、歌单详情、歌曲详情分批抓取。
   - 最近播放抓取与历史投影表。
@@ -87,7 +87,7 @@ Issue #8 给出的是 `https://music.163.com/#/user/songs/rank?id=xxx`，也就�
 ### 历史可得性
 
 - `/play-record/song/list` 是滚动窗口，不是完整事件日志；平台可能只保留每首歌的最近记录，重复播放不一定每次都有独立行。
-- 没有 offset/游标，不能翻页；要形成本地历史，只能从第一次同步开始持续运行 `eto --db-only netease`。
+- 没有 offset/游标，不能翻页；要形成本地历史，只能从第一次同步开始持续运行 `ownlog --db-only netease`。
 - 两次运行之间的播放记录可能被窗口挤出；这是上游限制，不是实现缺陷。
 - 排行只有聚合计数，不能反推逐次播放时间。
 
@@ -98,9 +98,9 @@ Issue #8 给出的是 `https://music.163.com/#/user/songs/rank?id=xxx`，也就�
 `netease` 是 DB-only 平台，必须与全局 `--db-only` 一起使用；普通导出模式直接报 `UsageError`，避免静默不写 Markdown。
 
 ```shell
-eto --db-only netease
-eto --db-only netease --uid 123456
-eto --db-only netease --force
+ownlog --db-only netease
+ownlog --db-only netease --uid 123456
+ownlog --db-only netease --force
 ```
 
 - `--uid` / `-u` 可选：默认调用账号接口，从 `account.id` 或 `profile.userId` 自动识别。
@@ -275,7 +275,7 @@ CREATE INDEX idx_netease_play_record_play_time
 
 ### 投影与重建
 
-`src/db/projections/netease.py` 实现 `rebuild(connection)`，复用 `db.raw.iter_responses` 与 `db.projections._upsert` 的 `upsert` / `update_aux`，按响应 `(fetched_at, id)` 顺序回放。平台在 `src/db/projections/__init__.py` 的 `SUPPORTED_PLATFORMS` 注册，`eto db rebuild netease` 与 `--db-only` 共用 `rebuild_platform` 入口。
+`src/db/projections/netease.py` 实现 `rebuild(connection)`，复用 `db.raw.iter_responses` 与 `db.projections._upsert` 的 `upsert` / `update_aux`，按响应 `(fetched_at, id)` 顺序回放。平台在 `src/db/projections/__init__.py` 的 `SUPPORTED_PLATFORMS` 注册，`ownlog db rebuild netease` 与 `--db-only` 共用 `rebuild_platform` 入口。
 
 删除顺序：
 
@@ -454,6 +454,6 @@ docs/usages/netease.md
 - **TEST-006**：歌单列表 301 在重建时回滚；辅助响应坏 JSON 跳过并计数；历史单条缺 `playTime` 跳过并计数。
 - **TEST-007**：CLI 在非 `--db-only` 下报 `UsageError`；`--uid` 不一致报错；`--force` 跳过详情剪枝。
 - **TEST-008**：`PYTHONPATH=src pytest tests -q`、`ruff check src tests`、`ruff format --check src tests` 全部通过。
-- **TEST-009**：用有效 `MUSIC_U` 手工执行 `eto --db-only netease`，检查 4 张表、raw 中的排行响应，再执行两次 `eto db rebuild netease` 验证幂等。
+- **TEST-009**：用有效 `MUSIC_U` 手工执行 `ownlog --db-only netease`，检查 4 张表、raw 中的排行响应，再执行两次 `ownlog db rebuild netease` 验证幂等。
 
 测试文件：`tests/test_netease_weapi.py`、`tests/test_netease.py`、`tests/test_projection_netease.py`，以及共享的 `tests/test_http_recorder.py`、`tests/test_credential_guard.py`、`tests/test_db_schema.py`、`tests/test_projection_schema.py`、`tests/test_projection_base.py`、`tests/test_cli_db.py`、`tests/test_raw_platforms.py`。

@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] cnblog -o OUTPUT [--force]
+ownlog [全局参数] cnblog -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -37,7 +37,7 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto --prefix "" cnblog -o output/cnblog
+ownlog --prefix "" cnblog -o output/cnblog
 ```
 
 [返回命令索引](./README.md)

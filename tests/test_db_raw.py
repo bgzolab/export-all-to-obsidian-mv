@@ -24,7 +24,7 @@ def test_run_and_response_round_trip(tmp_path):
         platform='github',
         operation='stars',
         scope='octocat',
-        command='eto --db eto.db github -t template.md -o output',
+        command='ownlog --db ownlog.db github -t template.md -o output',
     )
 
     body = b'{"hello": "world"}'
@@ -42,7 +42,7 @@ def test_run_and_response_round_trip(tmp_path):
         'SELECT * FROM sync_run WHERE id = ?', (run_id,)
     ).fetchone()
     assert run['status'] == 'success'
-    assert run['command'].startswith('eto --db')
+    assert run['command'].startswith('ownlog --db')
     assert run['finished_at'] is not None
 
     row = connection.execute(

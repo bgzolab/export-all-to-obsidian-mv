@@ -77,7 +77,7 @@ def notify_invalid_credentials(results: list[CredentialProbeResult]) -> bool:
     if not token or not chat_id or not results:
         return False
 
-    lines = ['export-to-obsidian 凭证失效提醒']
+    lines = ['ownlog 凭证失效提醒']
     for result in results:
         lines.append(f'- {result.module}: {result.reason}')
 

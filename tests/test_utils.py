@@ -44,7 +44,7 @@ def test_dump_markdown_with_frontmatter():
 
 
 def test_index_writer_flush_stdout(capsys):
-    from export_to_obsidian import IndexWriter
+    from ownlog import IndexWriter
 
     writer = IndexWriter()
     writer.add('- [[item-1|标题1]]')
@@ -60,7 +60,7 @@ def test_index_writer_flush_stdout(capsys):
 
 
 def test_index_writer_flush_file(tmp_path):
-    from export_to_obsidian import IndexWriter
+    from ownlog import IndexWriter
 
     target = tmp_path / 'index.md'
     writer = IndexWriter(file_path=str(target))
@@ -91,7 +91,7 @@ def test_exporter_support_helpers(tmp_path, capsys):
         write_markdown_output,
         write_raw_markdown_output,
     )
-    from export_to_obsidian import IndexWriter
+    from ownlog import IndexWriter
 
     writer = IndexWriter(file_path=str(tmp_path / 'index.md'))
     metadata = {'title': '测试标题', 'date': '2025-07-27'}
@@ -138,10 +138,10 @@ def test_exporter_support_helpers(tmp_path, capsys):
 
 
 def test_cli_accepts_index_file_without_output_mode():
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['--index-file', 'output/index.md', '--help'])
+    result = runner.invoke(ownlog, ['--index-file', 'output/index.md', '--help'])
 
     assert result.exit_code == 0
     assert '--index-file' in result.output
@@ -149,11 +149,11 @@ def test_cli_accepts_index_file_without_output_mode():
 
 
 def test_cli_rejects_removed_index_output_option():
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     runner = CliRunner()
     result = runner.invoke(
-        eto,
+        ownlog,
         ['--index-output', 'stdout', 'cnblog', '-o', 'output/cnblog'],
     )
 

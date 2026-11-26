@@ -11,7 +11,7 @@ tags: [feature]
 
 ## 背景与目标
 
-当前仓库通过 `eto` 把 10 个平台的数据写入 SQLite：raw 层（`sync_run` / `sync_response`）保留原始响应，投影层把 raw 重放成 25 张平台表。现在只有 CLI 和 Markdown 输出，没有交互式查看入口。
+当前仓库通过 `ownlog` 把 10 个平台的数据写入 SQLite：raw 层（`sync_run` / `sync_response`）保留原始响应，投影层把 raw 重放成 25 张平台表。现在只有 CLI 和 Markdown 输出，没有交互式查看入口。
 
 本特性在仓库根目录新增独立的 `web/`，提供局域网内可用的数据浏览器：
 
@@ -36,7 +36,7 @@ tags: [feature]
   - 登录、权限、多用户、多账号。
   - FTS5 全文索引；v1 用 `LIKE`。
   - 跨平台统一 `item` 模型（仓库既有非目标）。
-  - 修改 `eto` CLI、主包 `pyproject.toml` 或 Markdown 导出流程。
+  - 修改 `ownlog` CLI、主包 `pyproject.toml` 或 Markdown 导出流程。
   - 移动端专项适配；只保证 390px 下导航换行和页面不横向溢出，完整移动端交互留待后续。
   - 删除检测、数据脱敏。
 
@@ -310,7 +310,7 @@ web/
 | GitHub | `github_star` | `starred_at` | Star |
 | QiReader | `qireader_entry` | `timestamp`（纳秒字符串，QiReader 保存时间） | 稍后读 |
 
-- QiReader 有一个容易误用的字段：`crawled_at` 是 eto 抓取正文的时间，不是用户保存到稍后读的时间。2026-11-25 修正为使用 QiReader API 的 `timestamp`（`/1e9` 得到 epoch 秒），周末才不再被批量正文抓取填满。
+- QiReader 有一个容易误用的字段：`crawled_at` 是 ownlog 抓取正文的时间，不是用户保存到稍后读的时间。2026-11-25 修正为使用 QiReader API 的 `timestamp`（`/1e9` 得到 epoch 秒），周末才不再被批量正文抓取填满。
 - Twitter、V2EX、微博、网易云目前只有同步时间（`db_created_at` / `db_updated_at`），加入时间线会让一次同步变成一个虚假的收藏尖峰，因此暂不进入热力图和活动流；它们仍可从侧栏和平台卡片浏览。
 - 知乎暂不进入时间线：collection item 的 `created` 与 `content.created_time` 完全相等（抽样 2,659/2,659），是内容发布时间而不是加入收藏夹的时间，会凭空出现 2011 年记录。平台页仍保留知乎；等 raw/exporter 能提供真实收藏时间后再加回。
 - 后端 `timeline.py` 用静态 SQL 把 5 个来源 `UNION ALL` 成统一列，表不存在时自动跳过该来源；`day` 只做格式/日期校验后绑定参数，`limit` 最大 100。没有新增规范化表，也没有让前端拼接 SQL。
@@ -348,7 +348,7 @@ web/
 - **DEC-001**：Python + FastAPI，不用 Go/Rust — 当前库 297MB、投影表几千行，实测列表查询 0.02ms；单用户 LAN 的瓶颈不是语言。GIL 对单用户无影响，SQLite 写入本来就串行；换语言只会增加第二套工具链和 schema 双写。
 - **DEC-002**：通用 schema 驱动 API，不做 10 套平台接口 — 开发时 26 张表、10 个平台，新增表和平台自动覆盖；平台差异放在前端展示配置。
 - **DEC-003**：v1 只读；未来扩展数据放独立 `data/user.db` — 投影表会被重建，不能承载用户数据。
-- **DEC-004**：独立 `web/`，自带依赖，不改主包 — 保持 `pipx install export_to_obsidian` 轻量，不把 FastAPI/Node 塞进 CLI 依赖。
+- **DEC-004**：独立 `web/`，自带依赖，不改主包 — 保持 `pipx install ownlog` 轻量，不把 FastAPI/Node 塞进 CLI 依赖。
 - **DEC-005**：无登录，局域网单用户 — 用户明确接受；v1 只读，写入上线前加 token。
 - **DEC-006**：搜索用 `LIKE`，不建 FTS5 — 当前数据量几千到几万行，`LIKE` 足够；FTS5 需要触发器和索引维护，等数据量或体验触发再上。
 - **DEC-007**：详情用渲染器注册表，不直接展示 JSON — 用户明确要求进一步渲染；JSON 树只用于嵌套对象和调试开关。
@@ -374,7 +374,7 @@ web/
 - **DEC-027**：时间线复用 `/t/:table/:pk` 详情页 — 不新建弹窗预览或第二套详情渲染；点击后仍可看到正文、来源、媒体和上一条/下一条，代价是离开时间线滚动位置。
 - **DEC-028**：时间线是独立 `/timeline` 页面，不挂在总览底部 — 热力图 + 无限列表本身有独立筛选状态（年份、日期）和很长的滚动区，继续塞在首页会让首页变成两个产品；侧栏提供平级入口，首页只保留一个快捷链接。
 - **DEC-029**：热力图按自然年而不是滚动 53 周 — 用户需要明确选择年份，自然年边界和月份标签比“最近 371 天”更可解释；起始周向前补到周日、结束周向后补到周六，保证 7 行网格。
-- **DEC-030**：QiReader 使用 API `timestamp` 而不是 `crawled_at` — `crawled_at` 是 eto 抓正文的时间，按同步批次分布，会把周末/每天填满；`timestamp` 是 QiReader 的纳秒保存时间（`/1e9`），与用户实际加入稍后读的日期一致。Bangumi 只有 `updated_at`，在标签上明确为“收藏更新”，不当作首次收藏。
+- **DEC-030**：QiReader 使用 API `timestamp` 而不是 `crawled_at` — `crawled_at` 是 ownlog 抓正文的时间，按同步批次分布，会把周末/每天填满；`timestamp` 是 QiReader 的纳秒保存时间（`/1e9`），与用户实际加入稍后读的日期一致。Bangumi 只有 `updated_at`，在标签上明确为“收藏更新”，不当作首次收藏。
 
 ## 备选方案
 
@@ -383,7 +383,7 @@ web/
 - **ALT-003**：Datasette — 零代码、只读、自带 JSON API；但服务端渲染、无法做自定义 Vue 和未来写入，只适合开发期对照。
 - **ALT-004**：每平台一套 REST 接口 — 类型更强、详情更定制；但 10 个平台重复代码，新增表要改后端。先通用，遇到通用 API 表达不了的交互再加平台专用端点。
 - **ALT-005**：把数据加载进内存 — 297MB 可放下，但会引入陈旧数据和同步复杂度；SQLite page cache 已足够。
-- **ALT-006**：`eto serve` 子命令 — 对用户更方便，但把 web 依赖带进主包；独立目录更干净。以后需要再包一层。
+- **ALT-006**：`ownlog serve` 子命令 — 对用户更方便，但把 web 依赖带进主包；独立目录更干净。以后需要再包一层。
 - **ALT-007**：Element Plus — MIT、最新、中文资料最多；DataTable 能力弱于 OpenVue，服务端分页/排序/过滤要自己接，故未选。
 - **ALT-008**：PrimeVue 5.x — 组件最完整，但 PrimeUI License 需要 license key/年度续期，与公开 AGPL 分发冲突，未选。
 - **ALT-009**：为每个平台新增 SQL join 视图/端点 — 列表筛选和排序更强，但需要 7 套 SQL、主键声明和测试；本次只有 Bangumi 搜索必须后端参与，先用 `search_columns` 解决。
@@ -392,7 +392,7 @@ web/
 ## 风险与限制
 
 - **RISK-001**：局域网无鉴权会暴露私人数据；v1 只读也有读取风险。默认 `127.0.0.1`，LAN 必须显式 `--host 0.0.0.0`；写入功能上线前加 token。
-- **RISK-002**：只读连接在 WAL 模式下需要访问 `-shm`；不同用户/容器权限可能导致 `SQLITE_READONLY_CANTINIT`。要求与 `eto` 同用户运行；必要时退化为读写连接 + `PRAGMA query_only=ON`。
+- **RISK-002**：只读连接在 WAL 模式下需要访问 `-shm`；不同用户/容器权限可能导致 `SQLITE_READONLY_CANTINIT`。要求与 `ownlog` 同用户运行；必要时退化为读写连接 + `PRAGMA query_only=ON`。
 - **RISK-003**：`LIKE` 在 `zhihu_content`（42MB）、`v2ex_reply`（50MB）等大表上会全表扫描；当前数据量可接受，10 万行以上再评估 FTS5。
 - **RISK-004**：抓取来的 HTML 可能含脚本；必须 DOMPurify，禁止直接 `v-html` 原始内容。
 - **RISK-005**：raw body 可能很大或不是 JSON；详情接口 2MB 截断，UI 明示。
@@ -429,7 +429,7 @@ web/
 - **TEST-002**：前端 `vue-tsc --noEmit`、`vitest run`、`vite build` 通过。
 - **TEST-003**：手工冒烟覆盖 10 个平台：OpenVue DataTable lazy 分页/排序、搜索、过滤、详情、图片/HTML/JSON/时间渲染。
 - **TEST-004**：raw 冒烟：run 列表、run 详情、response 列表、JSON/文本详情、截断提示、复制/下载。
-- **TEST-005**：并发：`eto --db-only zhihu` 运行时浏览 zhihu 数据不报错。
+- **TEST-005**：并发：`ownlog --db-only zhihu` 运行时浏览 zhihu 数据不报错。
 - **TEST-006**：性能：当前 297MB 库上列表查询 p95 < 100ms；2MB raw 详情 < 500ms。
 - **TEST-007**：展示层冒烟：首页看板与“数据说明”、字段中文标签、全高列表、空过滤条件不触发 0 行、详情正文/视频/音乐/关联预览、raw 页面标签与滚动。
 - **TEST-008**：后端 `search_columns` 覆盖指定 JSON 列、未知列、空搜索和默认搜索行为。

@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] bangumi -t TEMPLATE -s SUBJECT_TYPE -o OUTPUT [-c COLLECTION_TYPE] [--force]
+ownlog [全局参数] bangumi -t TEMPLATE -s SUBJECT_TYPE -o OUTPUT [-c COLLECTION_TYPE] [--force]
 ```
 
 ## 参数
@@ -90,21 +90,21 @@ OUTPUT/
 只导出一个收藏类型：
 
 ```shell
-eto --index-file output/index/export-index.md \
+ownlog --index-file output/index/export-index.md \
   bangumi -t config/template/bangumi.md -s 2 -c 3 -o output/bangumi
 ```
 
 导出某个主题类型下的全部收藏类型：
 
 ```shell
-eto --index-file output/index/export-index.md \
+ownlog --index-file output/index/export-index.md \
   bangumi -t config/template/bangumi.md -s 1 -o output/bangumi
 ```
 
 强制重新导出：
 
 ```shell
-eto bangumi -t config/template/bangumi.md -s 2 -o output/bangumi --force
+ownlog bangumi -t config/template/bangumi.md -s 2 -o output/bangumi --force
 ```
 
 [返回命令索引](./README.md)

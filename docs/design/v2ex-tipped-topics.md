@@ -33,7 +33,7 @@ V2EX 没有“我的投币”API。实际可用的完整来源是登录后的 `/
 
 目标：
 
-- 新增 `eto --db-only v2ex --tipped`，把 `/balance` 中所有 `发送谢意` 记录落库；
+- 新增 `ownlog --db-only v2ex --tipped`，把 `/balance` 中所有 `发送谢意` 记录落库；
 - 复用现有 V2EX 主题详情与回复抓取逻辑；
 - 支持增量：余额页整页感谢记录都已入库时停止翻页，但随后仍检查所有已入库感谢主题的详情/回复缺口；
 - 保留交易级字段，为未来扩展留足数据。
@@ -62,7 +62,7 @@ V2EX 没有“我的投币”API。实际可用的完整来源是登录后的 `/
 新增：
 
 ```shell
-eto --db-only v2ex --tipped
+ownlog --db-only v2ex --tipped
 ```
 
 规则：
@@ -190,7 +190,7 @@ def _ensure_topic_data(topic_id, client, force) -> tuple[Topic | None, bool]
 
 - `/balance` 非 200：由 `raise_for_status()` 抛出，run 失败，不重建投影。
 - signin 页：抓取阶段抛 `RuntimeError`；投影阶段抛 `ValueError` 并整体回滚，避免清空已有感谢记录。
-- 缺少 `table.data` 的余额页（维护页、风控页）：抓取阶段无法区分，交由 `has_table=False` 标记；`export_tipped` 打印警告、标记 `partial` 并结束翻页。raw 仍保留该页，修好解析后可 `eto db rebuild v2ex`。翻页中止后**主题扫描照常执行**：HTML 异常不代表 API 异常，继续扫描仍可能补齐详情/回复，失败量由连续失败中止兜底。
+- 缺少 `table.data` 的余额页（维护页、风控页）：抓取阶段无法区分，交由 `has_table=False` 标记；`export_tipped` 打印警告、标记 `partial` 并结束翻页。raw 仍保留该页，修好解析后可 `ownlog db rebuild v2ex`。翻页中止后**主题扫描照常执行**：HTML 异常不代表 API 异常，继续扫描仍可能补齐详情/回复，失败量由连续失败中止兜底。
 - 有 `table.data` 但第 1 页解析出 0 条流水：只打印警告（可能是新账号的空历史，也可能是行结构变化），run 状态不变；后续页仍按 `max_page`/重复页规则翻完。
 - 单个主题详情 404/403/网络错误：`_ensure_topic_data` 标记 `partial`，跳过该主题，下一轮继续。
 - 连续 10 个主题抓取失败：`export_tipped` 停止本轮剩余扫描（run 已因上述失败标记为 `partial`）。客户端对 429 会走满 5 次重试退避，单个主题失败约 6 次请求、30 秒；不中止时 600+ 个主题会对着限流端点空转数小时。剩余主题在下一轮配额恢复后收敛。
@@ -233,7 +233,7 @@ def _ensure_topic_data(topic_id, client, force) -> tuple[Topic | None, bool]
 
 ## 风险与限制
 
-- **RISK-001**：V2EX 余额页 HTML 结构变化会导致解析失败。缺少 `table.data` 时 `export_tipped` 会告警并标记 `partial`，不再静默当成空流水；解析器必须有固定 fixture 测试，原始 HTML 保留在 raw 层，修复后可 `eto db rebuild v2ex`。
+- **RISK-001**：V2EX 余额页 HTML 结构变化会导致解析失败。缺少 `table.data` 时 `export_tipped` 会告警并标记 `partial`，不再静默当成空流水；解析器必须有固定 fixture 测试，原始 HTML 保留在 raw 层，修复后可 `ownlog db rebuild v2ex`。
 - **RISK-002**：余额页最后一页重复返回。依赖 `max_page`，并用 `transaction_keys` 重复检测和 1000 页上限兜底。
 - **RISK-003**：V2EX API 600 次/小时限制。首次 515 个以上主题需要多轮续跑；每轮 run 可能是 `partial`，这是预期行为。
 - **RISK-004**：部分旧主题已被删除。`v2ex_thanks` 保留，主题详情抓取会持续失败并标记 `partial`；不引入删除检测。
@@ -251,4 +251,4 @@ def _ensure_topic_data(topic_id, client, force) -> tuple[Topic | None, bool]
 - **TEST-003**：CLI 覆盖 `--tipped` 必须配合 `--db-only`、新主题抓取、已知页停止后仍补旧主题、`--force` 全量、无 `max_page` 时的重复末页停止、无流水表页中止后仍扫描主题、第 1 页零流水告警、连续 10 个主题抓取失败中止扫描（含回复抓取异常计数）、`sync_run.operation='tipped'`。
 - **TEST-004**：schema 测试覆盖 `v2ex_thanks` 表、索引、平台时间列和 `user_version = 7`。
 - **TEST-005**：`ruff check src tests`、`ruff format --check src tests` 通过。
-- **TEST-006**：真实环境 smoke（可选，注意配额）：运行 `eto --db-only v2ex --tipped`，确认页级剪枝生效、旧主题缺口继续补齐、无 Markdown 写入。
+- **TEST-006**：真实环境 smoke（可选，注意配额）：运行 `ownlog --db-only v2ex --tipped`，确认页级剪枝生效、旧主题缺口继续补齐、无 Markdown 写入。

@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] zhihu -c COLLECTION -o OUTPUT [--force]
+ownlog [全局参数] zhihu -c COLLECTION -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -36,7 +36,7 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto --index-file output/index/export-index.md zhihu -c your-collection-id -o output/zhihu
+ownlog --index-file output/index/export-index.md zhihu -c your-collection-id -o output/zhihu
 ```
 
 [返回命令索引](./README.md)

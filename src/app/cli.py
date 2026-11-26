@@ -72,7 +72,7 @@ from zhihu.exporter import export as export_zhihu
     help='只写入数据库，不生成 Markdown 和索引',
 )
 @click.pass_context
-def eto(
+def ownlog(
     ctx: click.Context,
     index_file: str | None,
     prefix: str,
@@ -107,7 +107,7 @@ def _template_path(template: str | None) -> str:
     return template
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
 def cnblog(output: str | None, force: bool) -> None:
@@ -125,7 +125,7 @@ def cnblog(output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--template', '-t', required=False, type=str, help='模板文件')
 @click.option('--subject_type', '-s', required=True, type=int, help='主题类型')
 @click.option('--output', '-o', required=False, help='输出目录')
@@ -174,7 +174,7 @@ def bangumi(
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--tag', '-t', required=True, type=str, help='收藏夹ID')
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
@@ -193,7 +193,7 @@ def qireader(tag: str, output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
 @click.option(
@@ -226,7 +226,7 @@ def v2ex(output: str | None, force: bool, tipped: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
 @click.option(
@@ -293,7 +293,7 @@ def twitter(
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--collection', '-c', required=True, help='收藏夹')
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
@@ -312,7 +312,7 @@ def zhihu(collection: str, output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--uid', '-u', required=True, help='用户ID')
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
@@ -331,7 +331,7 @@ def weibo(uid: int, output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--fid', '-f', required=True, help='收藏夹ID')
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
@@ -350,7 +350,7 @@ def bilibili(fid: int, output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option('--template', '-t', required=False, type=str, help='模板文件')
 @click.option('--output', '-o', required=False, help='输出目录')
 @click.option('--force', required=False, is_flag=True, help='是否强制覆盖')
@@ -372,7 +372,7 @@ def github(template: str | None, output: str | None, force: bool) -> None:
     )
 
 
-@eto.command()
+@ownlog.command()
 @click.option(
     '--uid',
     '-u',
@@ -399,7 +399,7 @@ def netease(uid: int | None, force: bool) -> None:
     )
 
 
-@eto.group()
+@ownlog.group()
 def db() -> None:
     """数据库维护命令。"""
 
@@ -417,7 +417,7 @@ def db_rebuild(platform: str) -> None:
     click.echo(f'重建完成: {result.summary()}')
 
 
-@eto.command(name='import-markdown')
+@ownlog.command(name='import-markdown')
 @click.argument('path', type=click.Path(path_type=str))
 def import_markdown_command(path: str) -> None:
     """把已有 Markdown 文件原样导入数据库。"""

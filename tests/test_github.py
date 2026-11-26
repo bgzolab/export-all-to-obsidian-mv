@@ -241,13 +241,13 @@ def test_github_export_writes_files_and_index(monkeypatch, tmp_path):
 
 
 def test_cli_registers_github_command():
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     runner = CliRunner()
 
-    root_help_result = runner.invoke(eto, ['--help'])
-    help_result = runner.invoke(eto, ['github', '--help'])
-    missing_template_result = runner.invoke(eto, ['github', '-o', 'output/github'])
+    root_help_result = runner.invoke(ownlog, ['--help'])
+    help_result = runner.invoke(ownlog, ['github', '--help'])
+    missing_template_result = runner.invoke(ownlog, ['github', '-o', 'output/github'])
 
     assert root_help_result.exit_code == 0
     assert '--prefix' in root_help_result.output

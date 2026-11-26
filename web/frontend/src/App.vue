@@ -16,7 +16,7 @@ const { schema } = useSchema()
           <span class="mask-icon" aria-hidden="true" :style="iconStyle(brandLogo)" />
         </span>
         <span class="brand-copy">
-          <strong>eto 收藏库</strong>
+          <strong>ownlog 收藏库</strong>
           <small>本地只读数据浏览器</small>
         </span>
       </RouterLink>

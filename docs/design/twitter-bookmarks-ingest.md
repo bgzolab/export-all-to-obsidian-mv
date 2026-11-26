@@ -40,9 +40,9 @@ tags: [feature, data]
 - 包含：
   - `twitter.bookmarks.page` 抓取与 raw 记录。
   - `twitter_tweet` 共享 Tweet 实体，新增 `twitter_like`、`twitter_bookmark` 关系表。
-  - `eto --db-only twitter --bookmarks [--full] [--force] [--max-pages N]`。
+  - `ownlog --db-only twitter --bookmarks [--full] [--force] [--max-pages N]`。
   - 增量剪枝、全量断点续抓、限流停止、queryId 维护提示。
-  - `eto db rebuild twitter` 同时回放点赞和书签响应。
+  - `ownlog db rebuild twitter` 同时回放点赞和书签响应。
   - 相关测试与文档同步。
 - 不包含：
   - 书签 Markdown 导出。
@@ -83,9 +83,9 @@ Likes 和 Bookmarks 的 Tweet 节点结构一致，可以共用 `Tweet.from_dict
 
 | 模式 | 命令 | 行为 |
 | --- | --- | --- |
-| 增量（默认） | `eto --db-only twitter --bookmarks` | 从顶部开始；整页都已存在于 `twitter_bookmark` 时停止，标记 `partial`；适合定时任务 |
-| 全量 | `eto --db-only twitter --bookmarks --full` | 从顶部开始；如果上次全量中断，从 full run 的断点游标继续；不做整页已知停止；到末尾、限流或页数上限停止 |
-| 强制重来 | `eto --db-only twitter --bookmarks --force` | 隐含 `--full`；忽略断点，从顶部开始一轮新的全量抓取 |
+| 增量（默认） | `ownlog --db-only twitter --bookmarks` | 从顶部开始；整页都已存在于 `twitter_bookmark` 时停止，标记 `partial`；适合定时任务 |
+| 全量 | `ownlog --db-only twitter --bookmarks --full` | 从顶部开始；如果上次全量中断，从 full run 的断点游标继续；不做整页已知停止；到末尾、限流或页数上限停止 |
+| 强制重来 | `ownlog --db-only twitter --bookmarks --force` | 隐含 `--full`；忽略断点，从顶部开始一轮新的全量抓取 |
 
 补充规则：
 

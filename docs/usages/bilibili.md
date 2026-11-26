@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] bilibili -f FID -o OUTPUT [--force]
+ownlog [全局参数] bilibili -f FID -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -38,14 +38,14 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto --index-file output/index/export-index.md \
+ownlog --index-file output/index/export-index.md \
   bilibili -f your-fav-id -o output/bilibili
 ```
 
 强制重新导出：
 
 ```shell
-eto bilibili -f your-fav-id -o output/bilibili --force
+ownlog bilibili -f your-fav-id -o output/bilibili --force
 ```
 
 [返回命令索引](./README.md)

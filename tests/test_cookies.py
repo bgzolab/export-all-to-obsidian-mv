@@ -23,7 +23,7 @@ def _write(tmp_path, content):
 
 def _root_ctx(cookies_file):
     """构造带 cookies_file 的 click 根上下文，模拟顶层 --cookies-file 注入。"""
-    ctx = click.Context(click.Command('eto'))
+    ctx = click.Context(click.Command('ownlog'))
     ctx.obj = {'cookies_file': cookies_file}
     return ctx
 

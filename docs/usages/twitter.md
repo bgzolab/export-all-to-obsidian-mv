@@ -6,10 +6,10 @@
 
 ```shell
 # 导出点赞 Markdown
-eto [全局参数] twitter -o OUTPUT [--force] [--max-pages N]
+ownlog [全局参数] twitter -o OUTPUT [--force] [--max-pages N]
 
 # 书签入库（不写 Markdown）
-eto [全局参数] --db-only twitter --bookmarks [--full] [--force] [--max-pages N]
+ownlog [全局参数] --db-only twitter --bookmarks [--full] [--force] [--max-pages N]
 ```
 
 ## 参数
@@ -52,9 +52,9 @@ OUTPUT/
 
 | 模式 | 命令 | 行为 |
 | --- | --- | --- |
-| 增量（默认） | `eto --db-only twitter --bookmarks` | 从顶部开始；整页都已在 `twitter_bookmark` 时停止，本次 run 标记 `partial` |
-| 全量 | `eto --db-only twitter --bookmarks --full` | 从顶部开始；若上次全量中断，则从其断点游标继续；不因整页已知停止 |
-| 强制重来 | `eto --db-only twitter --bookmarks --force` | 隐含 `--full`；忽略断点，从顶部开始新一轮全量抓取 |
+| 增量（默认） | `ownlog --db-only twitter --bookmarks` | 从顶部开始；整页都已在 `twitter_bookmark` 时停止，本次 run 标记 `partial` |
+| 全量 | `ownlog --db-only twitter --bookmarks --full` | 从顶部开始；若上次全量中断，则从其断点游标继续；不因整页已知停止 |
+| 强制重来 | `ownlog --db-only twitter --bookmarks --force` | 隐含 `--full`；忽略断点，从顶部开始新一轮全量抓取 |
 
 补充行为：
 
@@ -89,37 +89,37 @@ OUTPUT/
 默认导出点赞：
 
 ```shell
-eto --index-file output/index/export-index.md twitter -o output/twitter
+ownlog --index-file output/index/export-index.md twitter -o output/twitter
 ```
 
 限制点赞分页数：
 
 ```shell
-eto twitter --max-pages 5 -o output/twitter
+ownlog twitter --max-pages 5 -o output/twitter
 ```
 
 强制重新导出点赞：
 
 ```shell
-eto twitter --force -o output/twitter
+ownlog twitter --force -o output/twitter
 ```
 
 书签增量入库：
 
 ```shell
-eto --db-only twitter --bookmarks
+ownlog --db-only twitter --bookmarks
 ```
 
 书签首次全量或断点续抓：
 
 ```shell
-eto --db-only twitter --bookmarks --full
+ownlog --db-only twitter --bookmarks --full
 ```
 
 书签强制从头重来：
 
 ```shell
-eto --db-only twitter --bookmarks --force --max-pages 10
+ownlog --db-only twitter --bookmarks --force --max-pages 10
 ```
 
 [返回命令索引](./README.md)

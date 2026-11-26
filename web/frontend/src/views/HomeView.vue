@@ -164,7 +164,7 @@ const catalog = computed(() => {
         <h1>我的数字收藏</h1>
         <p class="hero-lede">
           从 {{ platformCards.length }} 个平台收拢到一起的 {{ formatNumber(totalItems) }} 条主内容。
-          这是 eto 导出到本地 SQLite 的只读副本。
+          这是 ownlog 导出到本地 SQLite 的只读副本。
         </p>
       </div>
       <div class="hero-actions">
@@ -197,7 +197,7 @@ const catalog = computed(() => {
           {{ latestRun ? formatRelative(latestRun.started_at, today) : '从未同步' }}
         </strong>
         <span class="stat-hint">
-          {{ latestRun ? formatTime(latestRun.started_at, 'iso') : '运行 eto 后这里会出现记录' }}
+          {{ latestRun ? formatTime(latestRun.started_at, 'iso') : '运行 ownlog 后这里会出现记录' }}
         </span>
       </article>
       <article class="stat-card panel">
@@ -335,7 +335,7 @@ const catalog = computed(() => {
     >
       <div class="info-body">
         <p>
-          这里是 <strong>eto</strong> 的只读浏览界面。卡片上的数字来自各平台的主内容表：
+          这里是 <strong>ownlog</strong> 的只读浏览界面。卡片上的数字来自各平台的主内容表：
           收藏、Star、喜欢、稍后读等；关联表（书签、回复、收藏关系）折叠进详情，
           表目录里仍可单独排查。
         </p>

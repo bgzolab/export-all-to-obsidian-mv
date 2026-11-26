@@ -11,7 +11,7 @@ from click.testing import CliRunner
 from app.credential_guard import CredentialProbeResult
 from db.connection import connect
 from db.projections import rebuild_platform
-from export_to_obsidian import eto
+from ownlog import ownlog
 from tests.projection_helpers import record_json, record_missing, record_text
 from v2ex.exporter import export_tipped
 from v2ex.tipped import BalancePage, ThanksEntry
@@ -97,7 +97,7 @@ def _invoke_cnblog(monkeypatch, db_path: str | None):
         '-o',
         'output/cnblog',
     ]
-    return CliRunner().invoke(eto, args)
+    return CliRunner().invoke(ownlog, args)
 
 
 def _query_one(db_path, sql, params=()):
@@ -110,10 +110,10 @@ def _query_one(db_path, sql, params=()):
 
 
 def test_cli_db_explicit_path_creates_run_with_command(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.context.sys.argv',
-        ['eto', '--db', db_path, 'cnblog', '-o', 'output/cnblog'],
+        ['ownlog', '--db', db_path, 'cnblog', '-o', 'output/cnblog'],
     )
 
     result = _invoke_cnblog(monkeypatch, db_path)
@@ -126,11 +126,11 @@ def test_cli_db_explicit_path_creates_run_with_command(monkeypatch, tmp_path):
     assert run['platform'] == 'cnblog'
     assert run['operation'] == 'bookmarks'
     assert run['status'] == 'success'
-    assert run['command'].startswith('eto --db')
+    assert run['command'].startswith('ownlog --db')
 
 
 def test_cli_db_default_path(monkeypatch, tmp_path):
-    default_db = tmp_path / 'default' / 'eto.db'
+    default_db = tmp_path / 'default' / 'ownlog.db'
     monkeypatch.setattr('db.connection.DEFAULT_DB_PATH', str(default_db))
 
     result = _invoke_cnblog(monkeypatch, None)
@@ -147,14 +147,14 @@ def test_cli_db_directory_is_rejected(monkeypatch, tmp_path):
 
 
 def test_cli_db_help_lists_option():
-    result = CliRunner().invoke(eto, ['--help'])
+    result = CliRunner().invoke(ownlog, ['--help'])
 
     assert result.exit_code == 0
     assert '--db' in result.output
 
 
 def test_cli_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
 
     def fake_export(output, index_writer, force=False):
         from app.context import mark_run_partial
@@ -168,7 +168,7 @@ def test_cli_marks_run_partial(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'cnblog', '-o', 'output/cnblog'],
     )
 
@@ -181,7 +181,7 @@ def test_cli_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_cli_marks_run_failed_on_exception(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
 
     def fake_export(output, index_writer, force=False):
         raise RuntimeError('boom')
@@ -193,7 +193,7 @@ def test_cli_marks_run_failed_on_exception(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'cnblog', '-o', 'output/cnblog'],
     )
 
@@ -207,14 +207,14 @@ def test_cli_marks_run_failed_on_exception(monkeypatch, tmp_path):
 
 
 def test_cli_import_markdown(tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     vault = tmp_path / 'vault'
     vault.mkdir()
     (vault / 'a.md').write_text('# A\n', encoding='utf-8')
 
     runner = CliRunner()
-    first = runner.invoke(eto, ['--db', db_path, 'import-markdown', str(vault)])
-    second = runner.invoke(eto, ['--db', db_path, 'import-markdown', str(vault)])
+    first = runner.invoke(ownlog, ['--db', db_path, 'import-markdown', str(vault)])
+    second = runner.invoke(ownlog, ['--db', db_path, 'import-markdown', str(vault)])
 
     assert first.exit_code == 0, first.output
     assert '导入完成: 1 个' in first.output
@@ -223,7 +223,7 @@ def test_cli_import_markdown(tmp_path):
 
 
 def test_twitter_failure_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.cli.probe_twitter_credentials',
         lambda: CredentialProbeResult.valid('twitter'),
@@ -236,7 +236,7 @@ def test_twitter_failure_marks_run_partial(monkeypatch, tmp_path):
     monkeypatch.setattr('twitter.exporter.get_twitter_like_list', fail)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
             db_path,
@@ -257,7 +257,7 @@ def test_twitter_failure_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_twitter_none_page_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.cli.probe_twitter_credentials',
         lambda: CredentialProbeResult.valid('twitter'),
@@ -269,7 +269,7 @@ def test_twitter_none_page_marks_run_partial(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'twitter', '-o', str(tmp_path / 'output')],
     )
 
@@ -282,7 +282,7 @@ def test_twitter_none_page_marks_run_partial(monkeypatch, tmp_path):
 
 
 def _run_weibo_with_page(monkeypatch, tmp_path, page):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.cli.probe_weibo_credentials',
         lambda uid: CredentialProbeResult.valid('weibo'),
@@ -293,7 +293,7 @@ def _run_weibo_with_page(monkeypatch, tmp_path, page):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'weibo', '-u', '1', '-o', str(tmp_path / 'output')],
     )
 
@@ -318,7 +318,7 @@ def test_weibo_error_page_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_cli_survives_finish_run_failure(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.cli.probe_cnblog_credentials',
         lambda: CredentialProbeResult.valid('cnblog'),
@@ -333,7 +333,7 @@ def test_cli_survives_finish_run_failure(monkeypatch, tmp_path):
     monkeypatch.setattr('app.context.raw.finish_run', fail_finish)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'cnblog', '-o', 'output/cnblog'],
     )
 
@@ -353,7 +353,7 @@ def _seed_bangumi_raw(db_path) -> None:
 
 
 def test_db_only_does_not_require_output(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     seen = {}
 
     def fake_export(output, index_writer, force=False):
@@ -366,7 +366,7 @@ def test_db_only_does_not_require_output(monkeypatch, tmp_path):
     )
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
-    result = CliRunner().invoke(eto, ['--db', db_path, '--db-only', 'cnblog'])
+    result = CliRunner().invoke(ownlog, ['--db', db_path, '--db-only', 'cnblog'])
 
     assert result.exit_code == 0, result.output
     assert seen == {'output': '', 'enabled': False}
@@ -375,8 +375,8 @@ def test_db_only_does_not_require_output(monkeypatch, tmp_path):
 
 def test_without_db_only_output_is_required(tmp_path):
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), 'cnblog'],
+        ownlog,
+        ['--db', str(tmp_path / 'ownlog.db'), 'cnblog'],
     )
 
     assert result.exit_code == 2
@@ -385,10 +385,10 @@ def test_without_db_only_output_is_required(tmp_path):
 
 def test_without_db_only_template_is_required(tmp_path):
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             'bangumi',
             '-s',
             '2',
@@ -403,13 +403,13 @@ def test_without_db_only_template_is_required(tmp_path):
 
 def test_db_only_rejects_index_file(tmp_path):
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db-only',
             '--index-file',
             str(tmp_path / 'index.md'),
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             'cnblog',
         ],
     )
@@ -419,7 +419,7 @@ def test_db_only_rejects_index_file(tmp_path):
 
 
 def test_db_only_suppresses_markdown_and_index(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     output_dir = tmp_path / 'output'
 
     def fake_export(output, index_writer, force=False):
@@ -446,7 +446,7 @@ def test_db_only_suppresses_markdown_and_index(monkeypatch, tmp_path):
     )
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
-    result = CliRunner().invoke(eto, ['--db', db_path, '--db-only', 'cnblog'])
+    result = CliRunner().invoke(ownlog, ['--db', db_path, '--db-only', 'cnblog'])
 
     assert result.exit_code == 0, result.output
     assert not output_dir.exists()
@@ -454,7 +454,7 @@ def test_db_only_suppresses_markdown_and_index(monkeypatch, tmp_path):
 
 
 def test_db_only_projects_after_fetch(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
 
     def fake_export(subject_type, collection_type, output, template, writer, force):
         assert output == ''
@@ -475,7 +475,7 @@ def test_db_only_projects_after_fetch(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.export_bangumi', fake_export)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bangumi', '-s', '2', '-c', '3'],
     )
 
@@ -495,7 +495,7 @@ def test_db_only_projects_after_fetch(monkeypatch, tmp_path):
 
 
 def test_db_only_projection_failure_marks_run_partial(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
 
     def fake_export(subject_type, collection_type, output, template, writer, force):
         connection = connect(db_path)
@@ -509,7 +509,7 @@ def test_db_only_projection_failure_marks_run_partial(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.export_bangumi', fake_export)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bangumi', '-s', '2', '-c', '3'],
     )
 
@@ -564,8 +564,15 @@ def test_db_only_v2ex_fetches_all_pages(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), '--db-only', 'v2ex', '-o', str(output_dir)],
+        ownlog,
+        [
+            '--db',
+            str(tmp_path / 'ownlog.db'),
+            '--db-only',
+            'v2ex',
+            '-o',
+            str(output_dir),
+        ],
     )
 
     assert result.exit_code == 0, result.output
@@ -606,8 +613,8 @@ def test_db_only_v2ex_stops_on_repeated_page(monkeypatch, tmp_path):
     monkeypatch.setattr('v2ex.exporter.get_v2ex_topic_info', fake_topic)
 
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), '--db-only', 'v2ex'],
+        ownlog,
+        ['--db', str(tmp_path / 'ownlog.db'), '--db-only', 'v2ex'],
     )
 
     assert result.exit_code == 0, result.output
@@ -617,7 +624,7 @@ def test_db_only_v2ex_stops_on_repeated_page(monkeypatch, tmp_path):
 
 
 def test_db_only_github_skips_known_readme(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(connection, 'github.stars.list', [GITHUB_STAR])
     record_text(
@@ -645,7 +652,7 @@ def test_db_only_github_skips_known_readme(monkeypatch, tmp_path):
     monkeypatch.setattr('github.exporter.get_repository_readme', fake_readme)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'github'],
     )
 
@@ -654,7 +661,7 @@ def test_db_only_github_skips_known_readme(monkeypatch, tmp_path):
 
 
 def test_db_only_github_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(connection, 'github.stars.list', [GITHUB_STAR])
     record_text(
@@ -682,7 +689,7 @@ def test_db_only_github_stops_at_known_page(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'github'],
     )
 
@@ -696,7 +703,7 @@ def test_db_only_github_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_bilibili_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(
         connection,
@@ -749,7 +756,7 @@ def test_db_only_bilibili_stops_at_known_page(monkeypatch, tmp_path):
     monkeypatch.setattr('bilibili.exporter.get_bilibili_favlistd', fake_favlist)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bilibili', '-f', '100'],
     )
 
@@ -763,7 +770,7 @@ def test_db_only_bilibili_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_bilibili_force_continues_pages(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(
         connection,
@@ -816,7 +823,7 @@ def test_db_only_bilibili_force_continues_pages(monkeypatch, tmp_path):
     monkeypatch.setattr('bilibili.exporter.get_bilibili_favlistd', fake_favlist)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bilibili', '-f', '100', '--force'],
     )
 
@@ -830,7 +837,7 @@ def test_db_only_bilibili_force_continues_pages(monkeypatch, tmp_path):
 
 
 def test_db_only_twitter_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'twitter.likes.page', {'data': {}})
     connection.execute(
@@ -875,7 +882,7 @@ def test_db_only_twitter_stops_at_known_page(monkeypatch, tmp_path):
     monkeypatch.setattr('twitter.exporter.get_twitter_like_list', fake_like)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'twitter'],
     )
 
@@ -889,7 +896,7 @@ def test_db_only_twitter_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_twitter_force_continues_pages(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'twitter.likes.page', {'data': {}})
     connection.execute(
@@ -934,7 +941,7 @@ def test_db_only_twitter_force_continues_pages(monkeypatch, tmp_path):
     monkeypatch.setattr('twitter.exporter.get_twitter_like_list', fake_like)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'twitter', '--force'],
     )
 
@@ -949,10 +956,10 @@ def test_db_only_twitter_force_continues_pages(monkeypatch, tmp_path):
 
 def test_cli_twitter_bookmarks_requires_db_only(tmp_path):
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             'twitter',
             '--bookmarks',
             '-o',
@@ -966,10 +973,10 @@ def test_cli_twitter_bookmarks_requires_db_only(tmp_path):
 
 def test_cli_twitter_full_requires_bookmarks(tmp_path):
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             '--db-only',
             'twitter',
             '--full',
@@ -996,7 +1003,7 @@ def test_cli_twitter_bookmarks_runs_ingest(
     expected_force,
     expected_scope,
 ):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     called = {}
 
     def fake_ingest(full=False, force=False, max_pages=None):
@@ -1009,7 +1016,7 @@ def test_cli_twitter_bookmarks_runs_ingest(
     monkeypatch.setattr('app.cli.ingest_bookmarks', fake_ingest)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
             db_path,
@@ -1054,10 +1061,10 @@ def test_cli_twitter_default_mode_uses_likes_probe(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             'twitter',
             '-o',
             str(tmp_path / 'output'),
@@ -1069,7 +1076,7 @@ def test_cli_twitter_default_mode_uses_likes_probe(monkeypatch, tmp_path):
 
 
 def test_db_only_github_force_fetches_known_readme(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(connection, 'github.stars.list', [GITHUB_STAR])
     record_text(
@@ -1099,7 +1106,7 @@ def test_db_only_github_force_fetches_known_readme(monkeypatch, tmp_path):
     monkeypatch.setattr('github.exporter.get_repository_readme', fake_readme)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'github', '--force'],
     )
 
@@ -1114,7 +1121,7 @@ def test_db_only_github_force_fetches_known_readme(monkeypatch, tmp_path):
 
 
 def test_db_only_v2ex_skips_known_topic(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(
         connection,
@@ -1148,7 +1155,7 @@ def test_db_only_v2ex_skips_known_topic(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex'],
     )
 
@@ -1158,7 +1165,7 @@ def test_db_only_v2ex_skips_known_topic(monkeypatch, tmp_path):
 
 
 def test_db_only_v2ex_refetches_incomplete_replies(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(
         connection,
@@ -1201,7 +1208,7 @@ def test_db_only_v2ex_refetches_incomplete_replies(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex'],
     )
 
@@ -1211,7 +1218,7 @@ def test_db_only_v2ex_refetches_incomplete_replies(monkeypatch, tmp_path):
 
 
 def test_db_only_github_mixed_page_continues(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(connection, 'github.stars.list', [GITHUB_STAR])
     rebuild_platform(connection, 'github')
@@ -1238,7 +1245,7 @@ def test_db_only_github_mixed_page_continues(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'github'],
     )
 
@@ -1252,7 +1259,7 @@ def test_db_only_github_mixed_page_continues(monkeypatch, tmp_path):
 
 
 def test_db_only_github_continues_with_pending_readme(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     second = json.loads(json.dumps(GITHUB_STAR))
     second['repo']['id'] = 456
     second['repo']['full_name'] = 'octocat/Second'
@@ -1292,7 +1299,7 @@ def test_db_only_github_continues_with_pending_readme(monkeypatch, tmp_path):
     monkeypatch.setattr('github.exporter.get_repository_readme', fake_readme)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'github'],
     )
 
@@ -1308,7 +1315,7 @@ def test_db_only_github_continues_with_pending_readme(monkeypatch, tmp_path):
 
 
 def test_db_only_v2ex_skips_complete_replies(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     topic = {
         **V2EX_TOPIC,
@@ -1354,7 +1361,7 @@ def test_db_only_v2ex_skips_complete_replies(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex'],
     )
 
@@ -1364,7 +1371,7 @@ def test_db_only_v2ex_skips_complete_replies(monkeypatch, tmp_path):
 
 
 def test_db_only_v2ex_caps_expected_replies(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     topic = {
         **V2EX_TOPIC,
@@ -1418,7 +1425,7 @@ def test_db_only_v2ex_caps_expected_replies(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex'],
     )
 
@@ -1428,7 +1435,7 @@ def test_db_only_v2ex_caps_expected_replies(monkeypatch, tmp_path):
 
 
 def test_db_only_v2ex_refetches_below_capped_expected(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     topic = {
         **V2EX_TOPIC,
@@ -1479,7 +1486,7 @@ def test_db_only_v2ex_refetches_below_capped_expected(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex'],
     )
 
@@ -1489,7 +1496,7 @@ def test_db_only_v2ex_refetches_below_capped_expected(monkeypatch, tmp_path):
 
 
 def test_v2ex_export_tipped_merges_new_and_known_topics(monkeypatch, tmp_path):
-    connection = connect(tmp_path / 'eto.db')
+    connection = connect(tmp_path / 'ownlog.db')
     response_id = record_text(connection, 'test.seed', '')
     connection.execute(
         'INSERT INTO v2ex_thanks '
@@ -1593,10 +1600,10 @@ def _seed_v2ex_thanks(connection, entries):
 
 def test_cli_v2ex_tipped_requires_db_only(tmp_path):
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
-            str(tmp_path / 'eto.db'),
+            str(tmp_path / 'ownlog.db'),
             'v2ex',
             '--tipped',
             '-o',
@@ -1612,7 +1619,7 @@ def test_cli_v2ex_tipped_stops_on_known_page_and_repairs_old_topics(
     monkeypatch,
     tmp_path,
 ):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     page_entry = _balance_entry(1, '2026-11-18 00:00:00 +08:00')
     old_entry = _balance_entry(3, '2026-11-01 00:00:00 +08:00')
     connection = connect(db_path)
@@ -1657,7 +1664,7 @@ def test_cli_v2ex_tipped_stops_on_known_page_and_repairs_old_topics(
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1677,7 +1684,7 @@ def test_cli_v2ex_tipped_force_refetches_all_pages_and_topics(
     monkeypatch,
     tmp_path,
 ):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     first_entry = _balance_entry(1, '2026-11-18 00:00:00 +08:00')
     second_entry = _balance_entry(2, '2026-11-17 00:00:00 +08:00')
     old_entry = _balance_entry(3, '2026-11-01 00:00:00 +08:00')
@@ -1723,7 +1730,7 @@ def test_cli_v2ex_tipped_force_refetches_all_pages_and_topics(
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped', '--force'],
     )
 
@@ -1744,7 +1751,7 @@ def test_cli_v2ex_tipped_stops_on_repeated_page_without_max_page(
     tmp_path,
 ):
     """A page without `max_page` falls back to repeated-page detection."""
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     entry = _balance_entry(1, '2026-11-18 00:00:00 +08:00')
     pages = [
         BalancePage(None, [entry], ['key-1']),
@@ -1779,7 +1786,7 @@ def test_cli_v2ex_tipped_stops_on_repeated_page_without_max_page(
     monkeypatch.setattr('v2ex.exporter.get_v2ex_topic_info', fake_topic)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1798,7 +1805,7 @@ def test_cli_v2ex_tipped_stops_on_repeated_page_without_max_page(
 
 def test_cli_v2ex_tipped_stops_on_page_without_flow_table(monkeypatch, tmp_path):
     """A maintenance page stops paging but the tipped scan still runs."""
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     entries = [_balance_entry(i, '2026-11-01 00:00:00 +08:00') for i in (1, 2)]
     connection = connect(db_path)
     _seed_v2ex_thanks(connection, entries)
@@ -1824,7 +1831,7 @@ def test_cli_v2ex_tipped_stops_on_page_without_flow_table(monkeypatch, tmp_path)
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1841,7 +1848,7 @@ def test_cli_v2ex_tipped_stops_on_page_without_flow_table(monkeypatch, tmp_path)
 
 def test_cli_v2ex_tipped_warns_on_empty_first_page(monkeypatch, tmp_path):
     """A table that yields no rows may be an empty history or broken markup."""
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     pages = [BalancePage(1, [], [])]
 
     monkeypatch.setattr(
@@ -1855,7 +1862,7 @@ def test_cli_v2ex_tipped_warns_on_empty_first_page(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1873,7 +1880,7 @@ def test_cli_v2ex_tipped_aborts_scan_after_consecutive_failures(
     tmp_path,
 ):
     """A quota-exhausted run stops instead of retrying every remaining topic."""
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     entries = [_balance_entry(i, f'2026-11-18 00:00:0{i} +08:00') for i in range(1, 13)]
     pages = [BalancePage(1, entries, ['key-1'])]
     topic_calls = []
@@ -1905,7 +1912,7 @@ def test_cli_v2ex_tipped_aborts_scan_after_consecutive_failures(
     monkeypatch.setattr('v2ex.exporter.get_v2ex_topic_info', fake_topic)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1937,7 +1944,7 @@ def test_cli_v2ex_tipped_counts_reply_exceptions_as_failures(
     tmp_path,
 ):
     """Reply fetch exceptions feed the consecutive-failure abort counter."""
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     entries = [_balance_entry(i, f'2026-11-18 00:00:0{i} +08:00') for i in range(1, 13)]
     connection = connect(db_path)
     _seed_v2ex_thanks(connection, entries)
@@ -1963,7 +1970,7 @@ def test_cli_v2ex_tipped_counts_reply_exceptions_as_failures(
     monkeypatch.setattr('v2ex.exporter.fetch_all_replies', fake_replies)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'v2ex', '--tipped'],
     )
 
@@ -1979,7 +1986,7 @@ def test_cli_v2ex_tipped_counts_reply_exceptions_as_failures(
 
 
 def test_db_only_cnblog_skips_known_body(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2016,7 +2023,7 @@ def test_db_only_cnblog_skips_known_body(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'cnblog'],
     )
 
@@ -2025,7 +2032,7 @@ def test_db_only_cnblog_skips_known_body(monkeypatch, tmp_path):
 
 
 def test_db_only_weibo_skips_known_long_text(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2066,7 +2073,7 @@ def test_db_only_weibo_skips_known_long_text(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'weibo', '-u', '1'],
     )
 
@@ -2075,7 +2082,7 @@ def test_db_only_weibo_skips_known_long_text(monkeypatch, tmp_path):
 
 
 def test_db_only_weibo_skips_long_text_without_mblogid(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2116,7 +2123,7 @@ def test_db_only_weibo_skips_long_text_without_mblogid(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'weibo', '-u', '1'],
     )
 
@@ -2126,7 +2133,7 @@ def test_db_only_weibo_skips_long_text_without_mblogid(monkeypatch, tmp_path):
 
 
 def test_db_only_qireader_skips_known_article(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2159,7 +2166,7 @@ def test_db_only_qireader_skips_known_article(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'qireader', '-t', 'tag-1'],
     )
 
@@ -2168,7 +2175,7 @@ def test_db_only_qireader_skips_known_article(monkeypatch, tmp_path):
 
 
 def test_db_only_qireader_skips_empty_url(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2202,7 +2209,7 @@ def test_db_only_qireader_skips_empty_url(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'qireader', '-t', 'tag-1'],
     )
 
@@ -2212,7 +2219,7 @@ def test_db_only_qireader_skips_empty_url(monkeypatch, tmp_path):
 
 
 def test_db_only_weibo_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2250,7 +2257,7 @@ def test_db_only_weibo_stops_at_known_page(monkeypatch, tmp_path):
     monkeypatch.setattr('weibo.exporter.get_weibo_like_list', fake_like)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'weibo', '-u', '1'],
     )
 
@@ -2264,7 +2271,7 @@ def test_db_only_weibo_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_zhihu_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2309,7 +2316,7 @@ def test_db_only_zhihu_stops_at_known_page(monkeypatch, tmp_path):
     monkeypatch.setattr('zhihu.exporter.get_collection_page', fake_page)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'zhihu', '-c', 'c1'],
     )
 
@@ -2323,7 +2330,7 @@ def test_db_only_zhihu_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_cnblog_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2362,7 +2369,7 @@ def test_db_only_cnblog_stops_at_known_page(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'cnblog'],
     )
 
@@ -2376,7 +2383,7 @@ def test_db_only_cnblog_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_bangumi_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2423,7 +2430,7 @@ def test_db_only_bangumi_stops_at_known_page(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bangumi', '-s', '2', '-c', '3'],
     )
 
@@ -2437,7 +2444,7 @@ def test_db_only_bangumi_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_qireader_stops_at_known_page(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2477,7 +2484,7 @@ def test_db_only_qireader_stops_at_known_page(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'qireader', '-t', 'tag-1'],
     )
 
@@ -2491,7 +2498,7 @@ def test_db_only_qireader_stops_at_known_page(monkeypatch, tmp_path):
 
 
 def test_db_only_weibo_continues_with_pending_long_text(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2549,7 +2556,7 @@ def test_db_only_weibo_continues_with_pending_long_text(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'weibo', '-u', '1'],
     )
 
@@ -2565,7 +2572,7 @@ def test_db_only_weibo_continues_with_pending_long_text(monkeypatch, tmp_path):
 
 
 def test_db_only_bangumi_continues_with_pending_details(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     for subject_id in (1, 2):
@@ -2627,7 +2634,7 @@ def test_db_only_bangumi_continues_with_pending_details(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'bangumi', '-s', '2', '-c', '3'],
     )
 
@@ -2644,7 +2651,7 @@ def test_db_only_bangumi_continues_with_pending_details(monkeypatch, tmp_path):
 
 
 def test_db_only_cnblog_skips_empty_link_url(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2689,7 +2696,7 @@ def test_db_only_cnblog_skips_empty_link_url(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'cnblog'],
     )
 
@@ -2700,7 +2707,7 @@ def test_db_only_cnblog_skips_empty_link_url(monkeypatch, tmp_path):
 
 
 def test_db_only_cnblog_continues_with_pending_body(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2763,7 +2770,7 @@ def test_db_only_cnblog_continues_with_pending_body(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'cnblog'],
     )
 
@@ -2780,7 +2787,7 @@ def test_db_only_cnblog_continues_with_pending_body(monkeypatch, tmp_path):
 
 
 def test_db_only_qireader_continues_with_pending_article(monkeypatch, tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     response_id = record_json(connection, 'test.seed', {})
     connection.execute(
@@ -2841,7 +2848,7 @@ def test_db_only_qireader_continues_with_pending_article(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), '--db-only', 'qireader', '-t', 'tag-1'],
     )
 
@@ -2857,11 +2864,11 @@ def test_db_only_qireader_continues_with_pending_article(monkeypatch, tmp_path):
 
 
 def test_db_rebuild_bangumi(tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     _seed_bangumi_raw(db_path)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), 'db', 'rebuild', 'bangumi'],
     )
 
@@ -2878,14 +2885,14 @@ def test_db_rebuild_bangumi(tmp_path):
 
 
 def test_db_rebuild_skips_transport_errors(tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     _seed_bangumi_raw(db_path)
     connection = connect(db_path)
     record_missing(connection, 'bangumi.subject.characters')
     connection.close()
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), 'db', 'rebuild', 'bangumi'],
     )
 
@@ -2898,8 +2905,8 @@ def test_db_rebuild_skips_transport_errors(tmp_path):
 
 def test_db_rebuild_rejects_unknown_platform(tmp_path):
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), 'db', 'rebuild', 'unknown'],
+        ownlog,
+        ['--db', str(tmp_path / 'ownlog.db'), 'db', 'rebuild', 'unknown'],
     )
 
     assert result.exit_code == 2
@@ -2913,8 +2920,8 @@ def test_db_rebuild_reports_projection_error(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), 'db', 'rebuild', 'bangumi'],
+        ownlog,
+        ['--db', str(tmp_path / 'ownlog.db'), 'db', 'rebuild', 'bangumi'],
     )
 
     assert result.exit_code == 1
@@ -2922,7 +2929,7 @@ def test_db_rebuild_reports_projection_error(monkeypatch, tmp_path):
 
 
 def test_v2ex_list_failure_marks_run_failed(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     monkeypatch.setattr(
         'app.cli.probe_v2ex_credentials',
         lambda: CredentialProbeResult.valid('v2ex'),
@@ -2935,7 +2942,7 @@ def test_v2ex_list_failure_marks_run_failed(monkeypatch, tmp_path):
     monkeypatch.setattr('v2ex.exporter.get_fav_list_topic_id_page', fail)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'v2ex', '-o', str(tmp_path / 'output')],
     )
 
@@ -2949,7 +2956,7 @@ def test_v2ex_list_failure_marks_run_failed(monkeypatch, tmp_path):
 
 
 def test_bilibili_item_error_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     media = SimpleNamespace(
         bvid='BV1',
         title='Video',
@@ -2971,7 +2978,7 @@ def test_bilibili_item_error_marks_run_partial(monkeypatch, tmp_path):
     monkeypatch.setattr('bilibili.exporter.get_bilibili_favlistd', fake_favlist)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'bilibili', '-f', '1', '-o', str(tmp_path / 'output')],
     )
 
@@ -2984,7 +2991,7 @@ def test_bilibili_item_error_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_weibo_item_error_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     item = SimpleNamespace(
         mblogid='m1',
         user=None,
@@ -3004,7 +3011,7 @@ def test_weibo_item_error_marks_run_partial(monkeypatch, tmp_path):
     monkeypatch.setattr('weibo.exporter.get_weibo_like_list', fake_like)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'weibo', '-u', '1', '-o', str(tmp_path / 'output')],
     )
 
@@ -3017,7 +3024,7 @@ def test_weibo_item_error_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_twitter_item_error_marks_run_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     tweet = SimpleNamespace(author=None, id_str='1', full_text='text')
     page = SimpleNamespace(tweets=[tweet], cursor_bottom=None)
 
@@ -3032,7 +3039,7 @@ def test_twitter_item_error_marks_run_partial(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'twitter', '-o', str(tmp_path / 'output')],
     )
 
@@ -3045,7 +3052,7 @@ def test_twitter_item_error_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_v2ex_write_error_marks_partial_and_continues(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     pages = {1: [1, 2], 2: []}
     writes = []
 
@@ -3079,7 +3086,7 @@ def test_v2ex_write_error_marks_partial_and_continues(monkeypatch, tmp_path):
     monkeypatch.setattr('v2ex.exporter.write_markdown_output', fake_write)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'v2ex', '-o', str(tmp_path / 'output')],
     )
 
@@ -3093,7 +3100,7 @@ def test_v2ex_write_error_marks_partial_and_continues(monkeypatch, tmp_path):
 
 
 def test_v2ex_null_topic_result_marks_partial(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     pages = {1: [1], 2: []}
 
     def fake_page(page, client=None):
@@ -3111,7 +3118,7 @@ def test_v2ex_null_topic_result_marks_partial(monkeypatch, tmp_path):
     )
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, 'v2ex', '-o', str(tmp_path / 'output')],
     )
 
@@ -3125,8 +3132,8 @@ def test_v2ex_null_topic_result_marks_partial(monkeypatch, tmp_path):
 
 def test_cli_netease_requires_db_only(tmp_path):
     result = CliRunner().invoke(
-        eto,
-        ['--db', str(tmp_path / 'eto.db'), 'netease'],
+        ownlog,
+        ['--db', str(tmp_path / 'ownlog.db'), 'netease'],
     )
 
     assert result.exit_code == 2
@@ -3134,7 +3141,7 @@ def test_cli_netease_requires_db_only(tmp_path):
 
 
 def test_cli_netease_passes_uid_and_force(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     called = {}
 
     def fake_sync(uid=None, force=False):
@@ -3147,7 +3154,7 @@ def test_cli_netease_passes_uid_and_force(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.sync_netease', fake_sync)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, '--db-only', 'netease', '-u', '42', '--force'],
     )
 
@@ -3164,7 +3171,7 @@ def test_cli_netease_passes_uid_and_force(monkeypatch, tmp_path):
 
 
 def test_cli_netease_defaults_uid_and_force(monkeypatch, tmp_path):
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
     called = {}
 
     def fake_sync(uid=None, force=False):
@@ -3177,7 +3184,7 @@ def test_cli_netease_defaults_uid_and_force(monkeypatch, tmp_path):
     monkeypatch.setattr('app.cli.sync_netease', fake_sync)
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, '--db-only', 'netease'],
     )
 
@@ -3201,10 +3208,10 @@ def test_cli_netease_uid_mismatch_marks_run_failed(monkeypatch, tmp_path):
         lambda: CredentialProbeResult.valid('netease'),
     )
     monkeypatch.setattr(netease_exporter, 'NeteaseClient', lambda: FakeClient())
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, '--db-only', 'netease', '-u', '7'],
     )
 
@@ -3230,10 +3237,10 @@ def test_cli_netease_empty_account_marks_run_failed(monkeypatch, tmp_path):
         lambda: CredentialProbeResult.valid('netease'),
     )
     monkeypatch.setattr(netease_exporter, 'NeteaseClient', lambda: FakeClient())
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, '--db-only', 'netease'],
     )
 
@@ -3273,10 +3280,10 @@ def test_cli_netease_resource_failure_marks_run_partial(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(netease_exporter, 'NeteaseClient', lambda: FakeClient())
     monkeypatch.setattr(netease_exporter, '_playlist_states', dict)
-    db_path = str(tmp_path / 'eto.db')
+    db_path = str(tmp_path / 'ownlog.db')
 
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', db_path, '--db-only', 'netease'],
     )
 
@@ -3289,7 +3296,7 @@ def test_cli_netease_resource_failure_marks_run_partial(monkeypatch, tmp_path):
 
 
 def test_db_rebuild_netease_is_idempotent(tmp_path):
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     connection = connect(db_path)
     record_json(
         connection,
@@ -3312,11 +3319,11 @@ def test_db_rebuild_netease_is_idempotent(tmp_path):
     connection.close()
 
     first = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), 'db', 'rebuild', 'netease'],
     )
     second = CliRunner().invoke(
-        eto,
+        ownlog,
         ['--db', str(db_path), 'db', 'rebuild', 'netease'],
     )
 

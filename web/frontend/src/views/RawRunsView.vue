@@ -122,7 +122,7 @@ function openRun(event: DataTableRowClickEvent) {
     <div class="heading">
       <div>
         <h1>同步记录</h1>
-        <p class="muted">每次 eto 同步的执行记录；点开一行可以查看原始接口响应。</p>
+        <p class="muted">每次 ownlog 同步的执行记录；点开一行可以查看原始接口响应。</p>
       </div>
       <span class="count-pill">{{ total }} 次</span>
     </div>

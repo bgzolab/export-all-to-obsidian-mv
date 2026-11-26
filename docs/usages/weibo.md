@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] weibo -u UID -o OUTPUT [--force]
+ownlog [全局参数] weibo -u UID -o OUTPUT [--force]
 ```
 
 ## 参数
@@ -38,14 +38,14 @@ OUTPUT/
 ## 示例
 
 ```shell
-eto --index-file output/index/export-index.md \
+ownlog --index-file output/index/export-index.md \
   weibo -u your-user-id -o output/weibo
 ```
 
 强制重新导出：
 
 ```shell
-eto weibo -u your-user-id -o output/weibo --force
+ownlog weibo -u your-user-id -o output/weibo --force
 ```
 
 [返回命令索引](./README.md)

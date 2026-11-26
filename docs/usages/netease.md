@@ -6,7 +6,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] --db-only netease [--uid UID] [--force]
+ownlog [全局参数] --db-only netease [--uid UID] [--force]
 ```
 
 ## 参数
@@ -31,7 +31,7 @@ eto [全局参数] --db-only netease [--uid UID] [--force]
 `MUSIC_U` 未登录或已失效，本次不会抓取任何数据。
 
 ```shell
-eto --cookies-file ./cookies.txt --db-only netease
+ownlog --cookies-file ./cookies.txt --db-only netease
 ```
 
 `--uid` 只做覆盖和校验。显式传入的 uid 与当前登录账号不一致时，命令直接报错，
@@ -105,9 +105,9 @@ for row in (payload.get('weekData') or [])[:10]:
 ## 示例
 
 ```shell
-eto --cookies-file ./cookies.txt --db-only netease
-eto --cookies-file ./cookies.txt --db-only netease --force
-eto --db data/eto.db db rebuild netease
+ownlog --cookies-file ./cookies.txt --db-only netease
+ownlog --cookies-file ./cookies.txt --db-only netease --force
+ownlog --db data/eto.db db rebuild netease
 ```
 
 ## 相关

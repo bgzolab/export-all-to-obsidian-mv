@@ -5,7 +5,7 @@
 ## 用法
 
 ```shell
-eto [全局参数] db rebuild PLATFORM
+ownlog [全局参数] db rebuild PLATFORM
 ```
 
 ## 参数
@@ -70,9 +70,9 @@ raw 层默认只增不改；确认该响应确实可以废弃后再手动处理�
 ## 示例
 
 ```shell
-eto --db ./data/eto.db db rebuild bangumi
-eto --db ./data/eto.db db rebuild v2ex
-eto --db ./data/eto.db db rebuild netease
+ownlog --db ./data/eto.db db rebuild bangumi
+ownlog --db ./data/eto.db db rebuild v2ex
+ownlog --db ./data/eto.db db rebuild netease
 ```
 
 [返回命令索引](./README.md)

@@ -3,7 +3,7 @@
 Each request opens its own connection because FastAPI runs sync handlers in a
 thread pool and SQLite connections are not safe to share across threads. The
 `mode=ro` URI makes accidental writes fail at the SQLite layer, and the busy
-timeout tolerates the short write locks held by a concurrent `eto` sync.
+timeout tolerates the short write locks held by a concurrent `ownlog` sync.
 """
 
 from __future__ import annotations

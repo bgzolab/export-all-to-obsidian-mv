@@ -7,10 +7,11 @@ live in `docs/implement-plans/`.
 
 ## Project overview
 
-`export_to_obsidian` is a Python CLI tool that exports saved content from multiple platforms
-into Obsidian-friendly Markdown files. The CLI entry point is `eto`.
+`ownlog` is a Python CLI tool for a personal digital life: it exports saved content from
+multiple platforms into Markdown files and keeps every raw API response in SQLite. The CLI
+entry point is `ownlog`.
 
-- Thin entry: `src/export_to_obsidian.py` -> `src/app/cli.py`
+- Thin entry: `src/ownlog.py` -> `src/app/cli.py`
 - Platform modules (all registered in the CLI): `bangumi`, `bilibili`, `cnblog`,
   `github`, `qireader`, `netease`, `twitter`, `v2ex`, `weibo`, `zhihu`, each orchestrated in
   `src/<platform>/exporter.py`; `netease` is database-only and writes no Markdown.
@@ -20,7 +21,7 @@ into Obsidian-friendly Markdown files. The CLI entry point is `eto`.
 
 ## Runtime flow
 
-1. `eto` -> `src/app/cli.py` parses top-level options and the subcommand.
+1. `ownlog` -> `src/app/cli.py` parses top-level options and the subcommand.
 2. `app.context` builds the root context, opens the SQLite database and injects
    IndexWriter into the chosen exporter.
 3. `app.cookies` extracts per-domain Cookie headers from the Netscape `cookies.txt`.
@@ -32,7 +33,7 @@ into Obsidian-friendly Markdown files. The CLI entry point is `eto`.
    the index file.
 6. `--db-only` suppresses every Markdown/index write, then calls
    `db.projections.rebuild_platform` after the fetch inside the same `sync_run`.
-   `eto db rebuild <platform>` runs the same projection without network or output.
+   `ownlog db rebuild <platform>` runs the same projection without network or output.
 
 ## Constraints
 
@@ -49,7 +50,7 @@ into Obsidian-friendly Markdown files. The CLI entry point is `eto`.
 - Python >= 3.12, click (CLI), requests (HTTP), pycryptodome (NetEase weapi AES)
 - stdlib `sqlite3` for the append-only raw response database (no ORM, no Alembic)
 - beautifulsoup4 / html2text / markdownify (HTML to Markdown), python-frontmatter
-- Poetry packaging (pyproject.toml, poetry-core backend), `[tool.poetry.scripts] eto`
+- Poetry packaging (pyproject.toml, poetry-core backend), `[tool.poetry.scripts] ownlog`
 - Ruff for lint + format (`ruff 0.17.4`), enforced by the PR workflow
 
 ## Development commands
@@ -86,6 +87,8 @@ ruff format src tests                          # apply formatting
   when omitted, the environment variable `COOKIES` (the file path) is used. `--db` defaults
   to `data/eto.db`; the database file is treated as a credential file.
   `--index-file` and `--db-only` are mutually exclusive.
+- The console script is `ownlog`; `eto` is kept as a compatibility alias. The default
+  database filename stays `data/eto.db` so existing databases are not split by the rename.
 - Subcommands: `cnblog(-o [--force])`, `bangumi(-t -s -o [-c] [--force])`,
   `qireader(-t -o [--force])`, `v2ex(-o [--force] [--tipped])`,
   `twitter(-o [--force] [--max-pages] [--bookmarks] [--full])`, `zhihu(-c -o [--force])`,
@@ -187,7 +190,7 @@ by the github module. Optional notifications: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CH
 - Auxiliary data that misses or ambiguously matches its main row is skipped and counted in
   `RebuildResult.aux_missed`; the rebuild summary prints the count.
 - Projection failures under `--db-only` mark the run `partial` and exit non-zero; raw data
-  remains available for `eto db rebuild <platform>`.
+  remains available for `ownlog db rebuild <platform>`.
 - Per-item failures in exporters are isolated: the item is skipped, the run is marked
   `partial`, and the batch continues. This applies to zhihu/cnblog/qireader as well as the
   platforms that already had item-level guards.

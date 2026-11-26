@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from click.testing import CliRunner
 
-from export_to_obsidian import eto
+from ownlog import ownlog
 
 
 class FakeResponse:
@@ -66,10 +66,10 @@ def test_github_cli_records_raw_responses(monkeypatch, tmp_path):
     monkeypatch.setenv('GITHUB_TOKEN', 'secret-token')
     monkeypatch.setattr('github.client.requests.Session', FakeSession)
 
-    db_path = tmp_path / 'eto.db'
+    db_path = tmp_path / 'ownlog.db'
     output_dir = tmp_path / 'output'
     result = CliRunner().invoke(
-        eto,
+        ownlog,
         [
             '--db',
             str(db_path),

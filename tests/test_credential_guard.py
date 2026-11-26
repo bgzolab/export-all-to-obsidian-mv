@@ -366,12 +366,12 @@ def test_probe_weibo_missing_domain_cookie_invalid(monkeypatch, tmp_path):
 def test_cli_cookies_file_bad_path_exits_1(monkeypatch, tmp_path):
     """--cookies-file 指向不存在的文件时应与 COOKIES 一致：exit 1「配置缺失」，
     而非 click 参数校验的 exit 2（exists=True 已移除，统一由 get_cookie_header 报错）。"""
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     bad = tmp_path / 'no-such-cookies.txt'
     runner = CliRunner()
     result = runner.invoke(
-        eto, ['--cookies-file', str(bad), 'weibo', '-u', '1', '-o', 'output/weibo']
+        ownlog, ['--cookies-file', str(bad), 'weibo', '-u', '1', '-o', 'output/weibo']
     )
     assert result.exit_code == 1
     assert '配置缺失' in result.output
@@ -380,11 +380,12 @@ def test_cli_cookies_file_bad_path_exits_1(monkeypatch, tmp_path):
 def test_cli_cookies_file_directory_exits_1(monkeypatch, tmp_path):
     """--cookies-file 指向目录时应与 COOKIES 一致：exit 1「配置缺失」，
     而非 click 参数校验的 exit 2（dir_okay=False 已移除，统一由 get_cookie_header 报错）。"""
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     runner = CliRunner()
     result = runner.invoke(
-        eto, ['--cookies-file', str(tmp_path), 'weibo', '-u', '1', '-o', 'output/weibo']
+        ownlog,
+        ['--cookies-file', str(tmp_path), 'weibo', '-u', '1', '-o', 'output/weibo'],
     )
     assert result.exit_code == 1
     assert '配置缺失' in result.output
@@ -394,11 +395,11 @@ def test_cli_cookies_file_directory_exits_1(monkeypatch, tmp_path):
 def test_cli_index_file_directory_exits_1(monkeypatch, tmp_path):
     """--index-file 指向目录时应与 --cookies-file 一致：exit 1（ClickException），
     而非 click 参数校验的 exit 2（dir_okay=False 已移除，统一由 initialize_context 报错）。"""
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     runner = CliRunner()
     result = runner.invoke(
-        eto,
+        ownlog,
         ['--index-file', str(tmp_path), 'cnblog', '-o', 'output/cnblog'],
     )
     assert result.exit_code == 1
@@ -421,7 +422,7 @@ def test_cli_cookies_file_option_reaches_client(monkeypatch, tmp_path):
     )
     monkeypatch.setenv('COOKIES', str(env_path))
     captured: list[WeiboClient] = []
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     def fake_probe(uid: int) -> guard.CredentialProbeResult:
         # 真实构造 WeiboClient，验证 Cookie 头取自 --cookies-file 指向的文件
@@ -436,7 +437,7 @@ def test_cli_cookies_file_option_reaches_client(monkeypatch, tmp_path):
 
     runner = CliRunner()
     result = runner.invoke(
-        eto,
+        ownlog,
         ['--cookies-file', str(explicit), 'weibo', '-u', '1', '-o', 'output/weibo'],
     )
     assert result.exit_code == 0, result.output
@@ -487,7 +488,7 @@ def test_run_with_credential_guard_continues_on_unknown(monkeypatch):
 
 
 def test_cli_skips_export_when_probe_invalid(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     called = {'export': False}
 
@@ -505,7 +506,7 @@ def test_cli_skips_export_when_probe_invalid(monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['cnblog', '-o', 'output/cnblog'])
+    result = runner.invoke(ownlog, ['cnblog', '-o', 'output/cnblog'])
 
     assert result.exit_code == 0
     assert 'cnblog 凭证已失效' in result.output
@@ -513,7 +514,7 @@ def test_cli_skips_export_when_probe_invalid(monkeypatch):
 
 
 def test_cli_runs_export_when_probe_valid(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     called = {'export': False}
 
@@ -528,14 +529,14 @@ def test_cli_runs_export_when_probe_valid(monkeypatch):
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['cnblog', '-o', 'output/cnblog'])
+    result = runner.invoke(ownlog, ['cnblog', '-o', 'output/cnblog'])
 
     assert result.exit_code == 0
     assert called['export'] is True
 
 
 def test_cli_cnblog_passes_force_to_export(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     called = {}
 
@@ -549,14 +550,14 @@ def test_cli_cnblog_passes_force_to_export(monkeypatch):
 
     monkeypatch.setattr('app.cli.export_cnblog', fake_export)
 
-    result = CliRunner().invoke(eto, ['cnblog', '-o', 'output/cnblog', '--force'])
+    result = CliRunner().invoke(ownlog, ['cnblog', '-o', 'output/cnblog', '--force'])
 
     assert result.exit_code == 0
     assert called['force'] is True
 
 
 def test_cli_twitter_passes_force_to_export(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     called = {}
 
@@ -576,7 +577,7 @@ def test_cli_twitter_passes_force_to_export(monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['twitter', '-o', 'output/twitter', '--force'])
+    result = runner.invoke(ownlog, ['twitter', '-o', 'output/twitter', '--force'])
 
     assert result.exit_code == 0
     assert called['output'] == 'output/twitter'
@@ -585,7 +586,7 @@ def test_cli_twitter_passes_force_to_export(monkeypatch):
 
 
 def test_cli_twitter_passes_max_pages(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     called = {}
 
@@ -603,14 +604,16 @@ def test_cli_twitter_passes_max_pages(monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['twitter', '-o', 'output/twitter', '--max-pages', '5'])
+    result = runner.invoke(
+        ownlog, ['twitter', '-o', 'output/twitter', '--max-pages', '5']
+    )
 
     assert result.exit_code == 0
     assert called['max_pages'] == 5
 
 
 def test_cli_twitter_rejects_max_pages_zero(monkeypatch):
-    from export_to_obsidian import eto
+    from ownlog import ownlog
 
     monkeypatch.setattr(
         'app.cli.probe_twitter_credentials',
@@ -623,7 +626,9 @@ def test_cli_twitter_rejects_max_pages_zero(monkeypatch):
     monkeypatch.setattr('app.cli.export_twitter', fake_export)
 
     runner = CliRunner()
-    result = runner.invoke(eto, ['twitter', '-o', 'output/twitter', '--max-pages', '0'])
+    result = runner.invoke(
+        ownlog, ['twitter', '-o', 'output/twitter', '--max-pages', '0']
+    )
 
     assert result.exit_code != 0
     assert 'Invalid value' in result.output
