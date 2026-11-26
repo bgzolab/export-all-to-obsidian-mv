@@ -5,6 +5,8 @@ import shlex
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'sync-db.sh'
 
 
@@ -13,12 +15,15 @@ def _run(
     fail_on: str | None = None,
     env_content: str = '',
     require_token: bool = False,
+    drop: str | None = None,
 ):
     repo = tmp_path / 'repo'
     (repo / 'data').mkdir(parents=True)
     (repo / 'data' / 'eto.db').write_bytes(b'')
     (repo / 'cookies.txt').write_text('', encoding='utf-8')
     (repo / '.env').write_text(env_content, encoding='utf-8')
+    if drop is not None:
+        (repo / drop).unlink()
 
     log = tmp_path / 'calls.log'
     stub = tmp_path / 'eto'
@@ -40,7 +45,8 @@ def _run(
         text=True,
         check=False,
     )
-    return result, log.read_text(encoding='utf-8').splitlines()
+    calls = log.read_text(encoding='utf-8').splitlines() if log.exists() else []
+    return result, calls
 
 
 def test_every_call_is_db_only(tmp_path):
@@ -71,6 +77,21 @@ def test_env_file_is_exported_to_eto(tmp_path):
         require_token=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ('drop', 'message'),
+    [
+        ('data/eto.db', 'bad db:'),
+        ('.env', 'missing env:'),
+        ('cookies.txt', 'missing cookies:'),
+    ],
+)
+def test_missing_prerequisite_aborts_before_eto(tmp_path, drop, message):
+    result, calls = _run(tmp_path, drop=drop)
+    assert result.returncode != 0
+    assert message in result.stdout
+    assert calls == []
 
 
 def test_script_does_not_reference_clippers():
