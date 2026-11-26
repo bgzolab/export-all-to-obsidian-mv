@@ -8,6 +8,7 @@ import pytest
 from db.connection import connect
 from db.projections import ProjectionError, rebuild_platform
 from db.projections.v2ex import (
+    missing_topic_ids,
     replies_complete,
     thanks_page_known,
     tipped_topic_ids,
@@ -423,6 +424,31 @@ def test_thanks_helpers_report_known_rows():
     # Same topic thanked as a topic also dedupes, and the newest transaction
     # moves it to the front without duplicating the id.
     assert tipped_topic_ids(connection) == [1, 2]
+    connection.close()
+
+
+def test_missing_topic_ids_uses_latest_detail_status():
+    connection = connect(':memory:')
+    _seed(connection)
+    rebuild_platform(connection, 'v2ex')
+    assert missing_topic_ids(connection) == set()
+
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        {'success': False, 'message': 'not found'},
+        request={'url': 'https://www.v2ex.com/api/v2/topics/1'},
+        status_code=404,
+    )
+    assert missing_topic_ids(connection) == {1}
+
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        _topic(1, 'Topic one'),
+        request={'url': 'https://www.v2ex.com/api/v2/topics/1'},
+    )
+    assert missing_topic_ids(connection) == set()
     connection.close()
 
 
