@@ -1,10 +1,11 @@
 """Home timeline and collection heatmap.
 
 The export database deliberately has no normalized cross-platform item table.
-This module maps the six platforms that store a real save/collection time onto a
+This module maps the five platforms that store a real save/collection time onto a
 common shape with static SQL. Platforms whose only timestamp is the sync time
 (Twitter, V2EX, Weibo, NetEase) are left out for now: mixing them in would turn
-one sync run into a fake collection spike.
+one sync run into a fake collection spike. Zhihu is also excluded: its
+`created` column is the content publication time, not the collection time.
 
 Every source is skipped when one of its tables is missing, so a partially
 populated database still renders instead of failing the whole page.
