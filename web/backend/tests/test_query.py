@@ -169,6 +169,24 @@ def test_hidden_columns_are_rejected(connection, seeded):
             QueryRequest(filters=[Filter(column='author_json', op='eq', value='{}')]),
             'not supported',
         ),
+        (
+            QueryRequest(filters=[Filter(column='title', op='eq', value={'a': 1})]),
+            'must be a scalar',
+        ),
+        (
+            QueryRequest(
+                filters=[Filter(column='voteup_count', op='in', value=[1, {}])]
+            ),
+            'must be scalars',
+        ),
+        (
+            QueryRequest(
+                filters=[
+                    Filter(column='voteup_count', op='in', value=list(range(1001)))
+                ]
+            ),
+            'at most',
+        ),
     ],
 )
 def test_invalid_requests_are_400(connection, seeded, query_request, detail):
@@ -224,3 +242,7 @@ def test_fetch_row_requires_exact_primary_key(connection, seeded):
             connection, 'bilibili_fav_item', {'fav_id': 1, 'media_id': 30, 'x': 1}
         )
     assert excinfo.value.status_code == 400
+    with pytest.raises(HTTPException) as excinfo:
+        fetch_row(connection, 'bilibili_fav_item', {'fav_id': {'a': 1}, 'media_id': 30})
+    assert excinfo.value.status_code == 400
+    assert 'must be a scalar' in excinfo.value.detail

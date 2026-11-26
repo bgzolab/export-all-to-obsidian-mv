@@ -19,6 +19,7 @@ from .schema import find_table, quote_identifier
 
 MAX_LIMIT = 200
 DEFAULT_LIMIT = 50
+MAX_IN_VALUES = 1000
 
 OPERATORS = {'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null'}
 NULL_OPERATORS = {'is_null', 'not_null'}
@@ -65,6 +66,11 @@ def _is_blob(column: dict) -> bool:
     return 'BLOB' in (column['type'] or '').upper()
 
 
+def _is_scalar(value: Any) -> bool:
+    # sqlite3 only binds scalars; dict/list values would surface as a 500.
+    return isinstance(value, (str, int, float, bool))
+
+
 def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
     column = _resolve_column(meta, request_filter.column, role='in filter')
     operator = request_filter.op
@@ -100,10 +106,17 @@ def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
     if operator == 'in':
         if not isinstance(value, list):
             raise _bad_request('in value must be a list')
+        if len(value) > MAX_IN_VALUES:
+            raise _bad_request(f'in accepts at most {MAX_IN_VALUES} values')
+        if not all(_is_scalar(item) for item in value):
+            raise _bad_request('in elements must be scalars')
         if not value:
             return '0', []
         placeholders = ', '.join('?' for _ in value)
         return f'{quote_identifier(column["name"])} IN ({placeholders})', list(value)
+
+    if not _is_scalar(value):
+        raise _bad_request(f'{operator} value must be a scalar')
 
     sql_operator = {
         'eq': '=',
@@ -297,6 +310,9 @@ def fetch_row(
         raise _bad_request(f'table has no primary key: {table}')
     if set(pk) != set(expected):
         raise _bad_request(f'primary key must contain exactly: {", ".join(expected)}')
+    for name in expected:
+        if not _is_scalar(pk[name]):
+            raise _bad_request(f'primary key value must be a scalar: {name}')
     columns = _visible_columns(meta)
     where = ' AND '.join(f'{quote_identifier(name)} = ?' for name in expected)
     sql = (
