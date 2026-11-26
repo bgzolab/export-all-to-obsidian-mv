@@ -7,9 +7,11 @@ tags: [feature]
 
 # Web 数据浏览器
 
+- PR: [#31](https://github.com/bgzolab/export-all-to-obsidian-mv/pull/31)
+
 ## 背景与目标
 
-当前仓库通过 `eto` 把 10 个平台的数据写入 SQLite：raw 层（`sync_run` / `sync_response`）保留原始响应，投影层把 raw 重放成 24 张平台表。现在只有 CLI 和 Markdown 输出，没有交互式查看入口。
+当前仓库通过 `eto` 把 10 个平台的数据写入 SQLite：raw 层（`sync_run` / `sync_response`）保留原始响应，投影层把 raw 重放成 25 张平台表。现在只有 CLI 和 Markdown 输出，没有交互式查看入口。
 
 本特性在仓库根目录新增独立的 `web/`，提供局域网内可用的数据浏览器：
 
@@ -20,7 +22,7 @@ tags: [feature]
 
 目标不是替代 Obsidian 导出，而是给“数据是否正确、某条记录长什么样、raw 响应是什么”提供一个可视化入口。
 
-当前库实测：297MB、26 张表、`user_version=7`、`sync_run` 695 行、`sync_response` 17,469 行；典型投影列表查询 0.02ms。`sync_response.body` 是 zlib 压缩的 BLOB，压缩后约 76.5MB。
+开发启动时实测（2026-11-20）：297MB、26 张表、`user_version=7`、`sync_run` 695 行、`sync_response` 17,469 行；典型投影列表查询 0.02ms。`sync_response.body` 是 zlib 压缩的 BLOB，压缩后约 76.5MB。表数随同步平台增加，后端按 live schema 自动适配。
 
 ## 范围
 
@@ -35,7 +37,7 @@ tags: [feature]
   - FTS5 全文索引；v1 用 `LIKE`。
   - 跨平台统一 `item` 模型（仓库既有非目标）。
   - 修改 `eto` CLI、主包 `pyproject.toml` 或 Markdown 导出流程。
-  - 移动端适配；以桌面浏览器为主。
+  - 移动端专项适配；只保证 390px 下导航换行和页面不横向溢出，完整移动端交互留待后续。
   - 删除检测、数据脱敏。
 
 ## 方案设计
@@ -56,30 +58,37 @@ web/
 │   │   ├── schema.py          # sqlite_master / PRAGMA 内省
 │   │   ├── models.py          # 查询请求/响应模型
 │   │   ├── query.py           # 通用 SQL 构建与执行
-│   │   └── raw.py             # run/response、zlib 解压
+│   │   ├── raw.py             # run/response、zlib 解压
+│   │   └── timeline.py        # 收藏时间线 UNION 查询与热力图
 │   └── tests/
 │       ├── conftest.py
 │       ├── test_health.py
 │       ├── test_schema.py
 │       ├── test_query.py
 │       ├── test_query_api.py
-│       └── test_raw.py
+│       ├── test_raw.py
+│       ├── test_static.py
+│       └── test_timeline.py
 └── frontend/
     ├── package.json
+    ├── package-lock.json
     ├── vite.config.ts
     ├── tsconfig.json
     ├── index.html
+    ├── public/favicon.svg
     └── src/
         ├── main.ts
         ├── App.vue
         ├── router.ts
         ├── api/client.ts
         ├── api/types.ts
-        ├── views/{Home,Table,Detail,RawRuns,RawRun,RawResponse}View.vue
-        ├── components/{PlatformNav,CellValue,FilterBar,FacetBar,GalleryGrid,FieldRenderer,JsonTree,PreviewCard}.vue
+        ├── assets/{favorite_list,kanban,timeline}.svg
+        ├── assets/platforms/*.svg
+        ├── views/{Home,Timeline,Table,Detail,RawRuns,RawRun,RawResponse}View.vue
+        ├── components/{PlatformNav,ActivityTimeline,CellValue,FilterBar,FacetBar,GalleryGrid,FieldRenderer,JsonTree,PreviewCard}.vue
         ├── composables/{useSchema,useDetailExtras}.ts
-        ├── config/{tables,details,details-types,columns,platforms}.ts
-        ├── utils/{pk,time,html,renderers,format,relation,gallery,extras}.ts
+        ├── config/{tables,details,details-types,columns,platforms,icons}.ts
+        ├── utils/{pk,time,html,renderers,format,relation,gallery,extras,tableState,timeline,twitter}.ts
         └── styles/main.css
 ```
 
@@ -97,6 +106,7 @@ web/
 - 通用查询：
   - 表名、列名、排序方向、过滤操作符都从 schema 允许列表校验；值全部参数化；标识符用双引号包裹。
   - 过滤操作符：`eq`、`ne`、`gt`、`gte`、`lt`、`lte`、`like`、`in`、`is_null`、`not_null`；BLOB 和 JSON 列只允许 `is_null` / `not_null`。
+  - 过滤值只接受标量（字符串/数字/布尔）；`in` 只接受最多 1000 个标量，非法类型返回 400 而不是让 sqlite3 抛出 500。行详情的主键值同样只接受标量。
   - `search`：对选中表的非 JSON `TEXT` 列做 `LIKE '%' || ? || '%' ESCAPE '\'`；用户输入中的 `\`、`%`、`_` 先转义；`body`、`content_json` 等大字段不参与。
   - 排序：用户指定列后追加主键列作为稳定排序；当前所有表都有主键。
   - 分页：`limit` 默认 50、最大 200；`offset` 默认 0。
@@ -192,10 +202,10 @@ web/
 
 ### 前端
 
-- Vue 3 + Vite + TypeScript + Vue Router + OpenVue 1.1.1（`openvue/datatable`、`openvue/column`、`openvue/tag`、`openvue/image`、`openvue/tree`、`openvue/toolbar`、`openvue/skeleton`）；`dayjs` 时间格式化，`DOMPurify` 清洗 HTML，`marked` 渲染 Markdown；不引入 Pinia/Axios，查询状态放路由 query。
+- Vue 3 + Vite + TypeScript + Vue Router + OpenVue 1.1.1（`openvue/datatable`、`openvue/column`、`openvue/tag`、`openvue/image`、`openvue/tree`、`openvue/toolbar`、`openvue/skeleton`）；时间格式化由 `utils/time.ts` 自行处理，`DOMPurify` 清洗 HTML，`marked` 渲染 Markdown；不引入 Pinia/Axios，查询状态放路由 query。
 - 依赖锁精确版本：`openvue@1.1.1`、`@openvue/themes@1.1.1`；OpenVue 是 2026-07 的年轻 fork，升级前跑全量冒烟。`main.ts` 用 `definePreset` 把 Aura 的 emerald 主色固定到 indigo，避免按钮/焦点环与自定义链接颜色两套强调色。
 - 布局：左侧“总览 + 平台”导航，顶部品牌与只读状态，主区看板/列表/详情；`html,body,#app` 锁定视口高度，`app-main` 独立滚动，列表页的 DataTable 用 `scrollHeight="flex"` 占满剩余高度，分页器固定在底部。
-- 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。未填值的过滤条件保留在 UI/URL 中但不发送到 SQLite，避免列表闪成 0 行。
+- 列表用 OpenVue `DataTable` 的 lazy 模式：`:lazy="true"`、`:totalRecords`、`@page`、`@sort`；搜索/过滤由自定义 `FilterBar` 生成并传给后端，不用 DataTable 的本地过滤。未填值的过滤条件保留在 UI/URL 中但不发送到 SQLite，避免列表闪成 0 行。Twitter 和微博列表把正文（`full_text` / `text`）放在第一列，时间与互动数后置。
 - 路由：
   - `/` 看板：平台主内容数量、平台分布、最近同步、近期成功率；表目录收进“数据说明”弹窗。
   - `/timeline` 时间线：年份选择热力图、按天筛选、无限滚动活动动态；与看板平级。
@@ -223,7 +233,7 @@ web/
   - `html`：`body_html`、`content`、`content_rendered`、`long_text` 等，DOMPurify 后渲染。
   - `markdown`：`github_star.readme` 等，`marked` 渲染后再 DOMPurify；支持相对链接重写。
   - `url` / `image` / `images`：链接、封面、`images_json` / `pic_infos_json` / `attachments_json` 中的图片。
-  - `datetime`：按表配置 `epoch_s` / `epoch_ms` / `iso` / `raw`；悬停显示原值。网易云时间列实际为毫秒，配置已修正。
+  - `datetime`：按表配置 `epoch_s` / `epoch_ms` / `epoch_ns` / `iso` / `raw`；悬停显示原值。网易云时间列实际为毫秒，QiReader `timestamp` 是 19 位纳秒字符串，均已在配置中修正。
   - `duration`：Bilibili 秒、网易云毫秒。
   - `json`：`*_json` 列用可折叠 JSON 树，不直接显示字符串。
   - `boolean` / `number` / `tag`。
@@ -323,6 +333,7 @@ web/
 
 ### 部署
 
+- 前置：Python 3.12（后端）、Node 20+（前端构建）；前端依赖由 `package-lock.json` 固定，后端只声明依赖下界。
 - 开发：
   - 后端：`cd web/backend && uvicorn app.main:app --reload --port 8787`
   - 前端：`cd web/frontend && npm run dev`（Vite proxy `/api` → 8787）
@@ -335,7 +346,7 @@ web/
 ## 关键决策
 
 - **DEC-001**：Python + FastAPI，不用 Go/Rust — 当前库 297MB、投影表几千行，实测列表查询 0.02ms；单用户 LAN 的瓶颈不是语言。GIL 对单用户无影响，SQLite 写入本来就串行；换语言只会增加第二套工具链和 schema 双写。
-- **DEC-002**：通用 schema 驱动 API，不做 10 套平台接口 — 26 张表、10 个平台，新增表和平台自动覆盖；平台差异放在前端展示配置。
+- **DEC-002**：通用 schema 驱动 API，不做 10 套平台接口 — 开发时 26 张表、10 个平台，新增表和平台自动覆盖；平台差异放在前端展示配置。
 - **DEC-003**：v1 只读；未来扩展数据放独立 `data/user.db` — 投影表会被重建，不能承载用户数据。
 - **DEC-004**：独立 `web/`，自带依赖，不改主包 — 保持 `pipx install export_to_obsidian` 轻量，不把 FastAPI/Node 塞进 CLI 依赖。
 - **DEC-005**：无登录，局域网单用户 — 用户明确接受；v1 只读，写入上线前加 token。
@@ -388,9 +399,9 @@ web/
 - **RISK-006**：schema 漂移（新列、改主键）会让前端配置失效；后端内省自动带出新列，前端有 fallback；主键变更需要人工更新配置。
 - **RISK-007**：平台时间格式不统一（epoch 秒/毫秒、ISO、Twitter 英文格式）；前端时间配置需要按表维护，未配置时显示原值。
 - **RISK-008**：OpenVue 是年轻 fork（2026-07 创建，当前 1.1.1，GitHub 442 stars / 566 open issues），长期维护和社区支持未验证；代码基线是成熟的 PrimeVue 4.5.5，锁精确版本，最坏情况回退 PrimeVue 4.5.5 或 Element Plus。
-- **RISK-009**：前端构建引入 Node 工具链；现有 CI 只有 Ruff/pytest，不覆盖前端。v1 用本地 `typecheck` + `build` + 手工冒烟，CI 集成另立任务。
+- **RISK-009**：前端构建引入 Node 工具链；主 CI 只有仓库级 Ruff 和主包 pytest，不运行 `web/backend` 的 pytest 或前端测试；web 后端依赖只声明下界、无 lock。v1 用本地 `pytest` + `typecheck` + `build` + 手工冒烟，CI 集成和依赖锁定另立任务。
 - **RISK-010**：offset 分页在深页会变慢；当前数据量小，后续可改 cursor。
-- **RISK-011**：Bilibili/网易云播放器与外链封面依赖第三方页面可用性和防盗链策略；加载失败时保留标题、封面回退或原站链接，不影响文字数据。
+- **RISK-011**：Bilibili/网易云播放器与外链封面依赖第三方页面可用性和防盗链策略；加载失败时保留标题、封面回退或原站链接，不影响文字数据。网易云歌单外链播放器只预览前几首，完整曲目需走“查看歌单曲目”列表。
 - **RISK-012**：照片墙一次加载 50 张远程封面，慢网下首屏变慢；图片使用 `loading="lazy"`，失败显示占位块，必要时再下调分页大小。
 - **RISK-013**：Bangumi facet 每次加载额外发约 11 个 `COUNT(*)` 请求；当前 1,092 行、本地 SQLite 下可接受，数据量上来再合并成后端 group-by 接口。
 - **RISK-014**：Bilibili 收藏夹补全每页多 2 个批量查询；当前 611 个媒体、1 个收藏夹，开销可忽略。
