@@ -14,7 +14,12 @@ from db.projections.v2ex import (
     tipped_topic_ids,
     topic_reply_count,
 )
-from tests.projection_helpers import business_rows, record_json, record_text
+from tests.projection_helpers import (
+    business_rows,
+    record_json,
+    record_missing,
+    record_text,
+)
 from v2ex.tipped import parse_balance_page
 
 TABLES = ('v2ex_reply', 'v2ex_favorite', 'v2ex_topic', 'v2ex_thanks')
@@ -438,6 +443,32 @@ def test_missing_topic_ids_uses_latest_detail_status():
         'v2ex.topic.detail',
         {'success': False, 'message': 'not found'},
         request={'url': 'https://www.v2ex.com/api/v2/topics/1'},
+        status_code=404,
+    )
+    assert missing_topic_ids(connection) == {1}
+
+    # 限流、5xx 和传输错误不改变缺失状态，否则已删主题会重新进入抓取。
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        {'success': False, 'message': 'rate limited'},
+        request={'url': 'https://www.v2ex.com/api/v2/topics/1'},
+        status_code=429,
+    )
+    assert missing_topic_ids(connection) == {1}
+    record_missing(
+        connection,
+        'v2ex.topic.detail',
+        request={'url': 'https://www.v2ex.com/api/v2/topics/1'},
+    )
+    assert missing_topic_ids(connection) == {1}
+
+    # 无法解析出 topic id 的 request 直接忽略。
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        {'success': False, 'message': 'not found'},
+        request={'url': 'https://www.v2ex.com/my/topics'},
         status_code=404,
     )
     assert missing_topic_ids(connection) == {1}
