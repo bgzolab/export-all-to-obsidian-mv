@@ -452,6 +452,19 @@ def test_missing_topic_ids_uses_latest_detail_status():
     connection.close()
 
 
+def test_missing_topic_ids_ignores_reply_urls():
+    connection = connect(':memory:')
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        {'success': False, 'message': 'not found'},
+        request={'url': 'https://www.v2ex.com/api/v2/topics/3/replies'},
+        status_code=404,
+    )
+    assert missing_topic_ids(connection) == set()
+    connection.close()
+
+
 def test_null_topic_result_is_skipped():
     connection = connect(':memory:')
     _seed(connection)

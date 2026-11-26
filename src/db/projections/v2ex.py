@@ -33,7 +33,7 @@ REPLIES_ENDPOINT = 'v2ex.topic.replies.page'
 DELETE_ORDER = ('v2ex_reply', 'v2ex_favorite', 'v2ex_thanks', 'v2ex_topic')
 
 _REPLIES_TOPIC_RE = re.compile(r'/topics/(\d+)/replies')
-_DETAIL_TOPIC_RE = re.compile(r'/topics/(\d+)')
+_DETAIL_TOPIC_RE = re.compile(r'/topics/(\d+)(?!/)')
 
 
 def rebuild(connection: sqlite3.Connection) -> RebuildResult:
