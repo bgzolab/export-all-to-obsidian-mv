@@ -100,7 +100,10 @@ function changeColumn(index: number, name: unknown) {
 }
 
 function changeOperator(index: number, op: unknown) {
-  const value = NULL_OPS.includes(String(op)) ? '' : props.filters[index]?.value
+  const current = props.filters[index]?.value
+  // `in` values are arrays and cannot round-trip through a scalar operator.
+  const scalar = Array.isArray(current) ? (current[0] ?? '') : current
+  const value = NULL_OPS.includes(String(op)) ? '' : scalar
   updateFilter(index, { op: String(op), value })
 }
 
@@ -163,6 +166,8 @@ function removeFilter(index: number) {
         class="value-input"
         :type="kindOf(columnByName(filter.column)) === 'time' ? 'datetime-local' : 'text'"
         :value="inputValue(filter)"
+        :disabled="filter.op === 'in'"
+        :title="filter.op === 'in' ? '列表过滤来自分享链接，仅可移除后重新添加' : undefined"
         :aria-label="`过滤值 ${columnLabel(table, filter.column)}`"
         @change="changeValue(index, ($event.target as HTMLInputElement).value)"
       />
