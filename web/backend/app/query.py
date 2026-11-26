@@ -56,7 +56,7 @@ def _resolve_column(meta: dict, name: str, *, role: str) -> dict:
     raise _bad_request(f'unknown column {role}: {name}')
 
 
-def _escape_like(value: str) -> str:
+def escape_like(value: str) -> str:
     # Escape the escape character first so the later replacements stay literal.
     return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
@@ -94,7 +94,7 @@ def _filter_clause(meta: dict, request_filter: Filter) -> tuple[str, list[Any]]:
             raise _bad_request('like value must be a string')
         return (
             f"{quote_identifier(column['name'])} LIKE ? ESCAPE '\\'",
-            [f'%{_escape_like(value)}%'],
+            [f'%{escape_like(value)}%'],
         )
 
     if operator == 'in':
@@ -163,7 +163,7 @@ def build_where(
             ]
         if not searchable:
             raise _bad_request('table has no searchable text columns')
-        pattern = f'%{_escape_like(term)}%'
+        pattern = f'%{escape_like(term)}%'
         clauses.append(
             '('
             + ' OR '.join(
