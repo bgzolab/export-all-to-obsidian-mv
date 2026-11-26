@@ -18,6 +18,8 @@ python3.12 -m venv .venv
 | GET | `/api/schema` | 表、平台分组、行数、主键、JSON/hidden 列 |
 | POST | `/api/tables/{table}/query` | 通用分页/搜索/过滤/排序查询 |
 | POST | `/api/tables/{table}/row` | 按主键（支持复合）取单行 |
+| GET | `/api/timeline` | 活动动态，支持 `year`/`day`/`limit`/`offset` |
+| GET | `/api/timeline/heatmap` | 某年逐日收藏数量，支持 `year` |
 | GET | `/api/runs` | raw run 列表，支持 `platform`/`status` |
 | GET | `/api/runs/{id}` | run 详情 + response 数量 |
 | GET | `/api/responses` | response 列表，不返回 `body` |
