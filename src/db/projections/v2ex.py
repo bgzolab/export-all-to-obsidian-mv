@@ -247,9 +247,11 @@ def missing_topic_ids(connection: sqlite3.Connection) -> set[int]:
     后续任意一次 200 会恢复抓取。
     """
     state: dict[int, bool] = {}
+    # raw 只增不删，先用 LIKE 过滤非主题请求，避免逐行解析 JSON。
     rows = connection.execute(
         'SELECT request, status_code FROM sync_response '
-        'WHERE endpoint = ? ORDER BY fetched_at, id',
+        "WHERE endpoint = ? AND request LIKE '%/topics/%' "
+        'ORDER BY fetched_at, id',
         (TOPIC_ENDPOINT,),
     )
     for row in rows:
