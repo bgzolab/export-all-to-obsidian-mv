@@ -240,10 +240,11 @@ def _topic_id_from_request(request: Any) -> int | None:
 
 
 def missing_topic_ids(connection: sqlite3.Connection) -> set[int]:
-    """返回最新详情响应为 404 的 topic id。
+    """返回最后一次明确详情响应为 404 的 topic id。
 
     已删除的主题会一直返回 404，若持续重试会浪费 API 配额并让 raw 无限增长。
-    只看最新一次详情响应的状态；后续恢复成 200 时自动回到正常抓取。
+    404 标记缺失，200 清除缺失；限流、5xx 和传输错误不改变既有状态。
+    后续任意一次 200 会恢复抓取。
     """
     state: dict[int, bool] = {}
     rows = connection.execute(
