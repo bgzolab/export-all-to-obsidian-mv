@@ -694,7 +694,8 @@ const TIME_UNIT_OVERRIDES: Record<string, Record<string, TimeUnit>> = {
   qireader_entry: {
     published_at: 'epoch_ms',
     crawled_at: 'epoch_ms',
-    timestamp: 'epoch_ms',
+    // QiReader stores this one as a 19-digit nanosecond string.
+    timestamp: 'epoch_ns',
   },
   v2ex_thanks: { thanked_at: 'iso' },
   weibo_post: { created_at: 'iso' },

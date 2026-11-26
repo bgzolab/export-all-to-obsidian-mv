@@ -16,6 +16,12 @@ describe('time formatting', () => {
     )
   })
 
+  it('formats epoch nanoseconds stored as strings', () => {
+    expect(formatTime('1763974116059279295', 'epoch_ns')).toMatch(
+      /^2025-11-24 \d{2}:\d{2}:\d{2}$/,
+    )
+  })
+
   it('formats ISO strings', () => {
     const formatted = formatTime('2026-11-20T10:20:30Z', 'iso')
     expect(formatted).toMatch(/^2026-11-20 \d{2}:\d{2}:\d{2}$/)
