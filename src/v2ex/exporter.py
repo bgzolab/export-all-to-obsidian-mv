@@ -170,6 +170,9 @@ def export_tipped(force: bool = False) -> None:
     """
     client = V2exClient()
     connection = get_database()
+    missing = set() if force else v2ex_projection.missing_topic_ids(connection)
+    if missing:
+        print(f'跳过已删除主题: {len(missing)} 个')
     new_entries: list[ThanksEntry] = []
     previous_keys: list[str] | None = None
     max_page: int | None = None
@@ -215,15 +218,17 @@ def export_tipped(force: bool = False) -> None:
     topic_ids: list[int] = []
     seen: set[int] = set()
     for entry in new_entries:
-        if entry.topic_id not in seen:
-            seen.add(entry.topic_id)
-            topic_ids.append(entry.topic_id)
+        if entry.topic_id in seen or entry.topic_id in missing:
+            continue
+        seen.add(entry.topic_id)
+        topic_ids.append(entry.topic_id)
     # Existing tipped topics keep their recency order and are appended after
     # this run's discoveries, so their pending detail/reply gaps still retry.
     for topic_id in v2ex_projection.tipped_topic_ids(connection):
-        if topic_id not in seen:
-            seen.add(topic_id)
-            topic_ids.append(topic_id)
+        if topic_id in seen or topic_id in missing:
+            continue
+        seen.add(topic_id)
+        topic_ids.append(topic_id)
 
     print(f'投币主题待检查: {len(topic_ids)} 个')
     failures = 0

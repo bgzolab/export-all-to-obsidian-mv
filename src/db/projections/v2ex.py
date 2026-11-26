@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from typing import Any
@@ -32,6 +33,7 @@ REPLIES_ENDPOINT = 'v2ex.topic.replies.page'
 DELETE_ORDER = ('v2ex_reply', 'v2ex_favorite', 'v2ex_thanks', 'v2ex_topic')
 
 _REPLIES_TOPIC_RE = re.compile(r'/topics/(\d+)/replies')
+_DETAIL_TOPIC_RE = re.compile(r'/topics/(\d+)(?!/)')
 
 
 def rebuild(connection: sqlite3.Connection) -> RebuildResult:
@@ -220,6 +222,47 @@ def tipped_topic_ids(connection: sqlite3.Connection) -> list[int]:
         'GROUP BY topic_id ORDER BY MAX(thanked_at) DESC, topic_id DESC'
     ).fetchall()
     return [int(row['topic_id']) for row in rows]
+
+
+def _topic_id_from_request(request: Any) -> int | None:
+    """从 raw request JSON 中解析 topic id。"""
+    if not isinstance(request, str):
+        return None
+    try:
+        payload = json.loads(request)
+    except ValueError:
+        return None
+    url = payload.get('url') if isinstance(payload, dict) else None
+    if not isinstance(url, str):
+        return None
+    match = _DETAIL_TOPIC_RE.search(url)
+    return int(match.group(1)) if match else None
+
+
+def missing_topic_ids(connection: sqlite3.Connection) -> set[int]:
+    """返回最后一次明确详情响应为 404 的 topic id。
+
+    已删除的主题会一直返回 404，若持续重试会浪费 API 配额并让 raw 无限增长。
+    404 标记缺失，200 清除缺失；限流、5xx 和传输错误不改变既有状态。
+    后续任意一次 200 会恢复抓取。
+    """
+    state: dict[int, bool] = {}
+    # raw 只增不删，先用 LIKE 过滤非主题请求，避免逐行解析 JSON。
+    rows = connection.execute(
+        'SELECT request, status_code FROM sync_response '
+        "WHERE endpoint = ? AND request LIKE '%/topics/%' "
+        'ORDER BY fetched_at, id',
+        (TOPIC_ENDPOINT,),
+    )
+    for row in rows:
+        topic_id = _topic_id_from_request(row['request'])
+        if topic_id is None:
+            continue
+        if row['status_code'] == 404:
+            state[topic_id] = True
+        elif row['status_code'] == 200:
+            state[topic_id] = False
+    return {topic_id for topic_id, missing in state.items() if missing}
 
 
 def topic_reply_count(

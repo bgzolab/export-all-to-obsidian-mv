@@ -1500,6 +1500,13 @@ def test_v2ex_export_tipped_merges_new_and_known_topics(monkeypatch, tmp_path):
         (response_id,),
     )
     connection.commit()
+    record_json(
+        connection,
+        'v2ex.topic.detail',
+        {'success': False, 'message': 'not found'},
+        request={'url': 'https://www.v2ex.com/api/v2/topics/3'},
+        status_code=404,
+    )
 
     def entry(topic_id):
         return ThanksEntry(
@@ -1536,7 +1543,12 @@ def test_v2ex_export_tipped_merges_new_and_known_topics(monkeypatch, tmp_path):
     with root:
         export_tipped()
 
-    assert calls == [(1, False), (2, False), (3, False)]
+    assert calls == [(1, False), (2, False)]
+
+    calls.clear()
+    with root:
+        export_tipped(force=True)
+    assert calls == [(1, True), (2, True), (3, True)]
     connection.close()
 
 
